@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔍 Company Matcher · master vs new list</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    body { background: #f4f7fc; padding: 2rem 1rem; max-width: 1400px; margin: 0 auto; }
+    .card { background: white; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); padding: 2rem; margin-bottom: 2rem; }
+    h1 { font-weight: 600; font-size: 1.8rem; display: flex; align-items: center; gap: 0.5rem; margin-top: 0; }
+    .sub { color: #3b5b7a; opacity: 0.8; font-weight: 400; font-size: 1rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    textarea { width: 100%; height: 200px; padding: 1rem; border-radius: 14px; border: 1px solid #d0d9e8; font-family: 'Monaco', 'Menlo', monospace; font-size: 0.85rem; resize: vertical; background: #fafcff; }
+    label { font-weight: 500; display: block; margin-bottom: 0.4rem; color: #1e2b3c; }
+    .btn { background: #1e2b3c; color: white; border: none; padding: 0.8rem 2rem; border-radius: 40px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+    .btn:hover { background: #0f1a2b; transform: scale(1.01); }
+    .btn-outline { background: transparent; border: 1px solid #1e2b3c; color: #1e2b3c; margin-left: 0.8rem; }
+    .btn-outline:hover { background: #eef3fa; }
+    .flex { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1.5rem 0; }
+    .stats { background: #eef3fa; padding: 1rem 1.5rem; border-radius: 60px; font-size: 0.95rem; display: inline-flex; gap: 2rem; }
+    .stats span { font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { text-align: left; padding: 0.7rem 0.5rem; border-bottom: 2px solid #dde3ed; color: #1f2a3c; }
+    td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #eaedf3; vertical-align: middle; }
+    .tag { display: inline-block; padding: 0.2rem 0.8rem; border-radius: 40px; font-weight: 500; font-size: 0.75rem; }
+    .tag-new { background: #d4edda; color: #0e5e2b; }
+    .tag-old { background: #fff3cd; color: #8a6d00; }
+    .tag-similar { background: #d1e7fd; color: #00468b; }
+    .sim-bar { background: #e6edf6; border-radius: 30px; height: 6px; width: 80px; display: inline-block; margin-right: 8px; }
+    .sim-fill { background: #1e2b3c; height: 6px; border-radius: 30px; }
+    .url { color: #1d4a7a; word-break: break-all; font-size: 0.8rem; }
+    .badge { background: #dde3ed; padding: 0.2rem 0.7rem; border-radius: 40px; font-size: 0.7rem; color: #1f2a3c; }
+    .match-detail { font-size: 0.8rem; color: #2e405c; }
+    .empty-state { text-align: center; padding: 2.5rem 0; color: #5e7089; }
+    .example { background: #f4f7fc; padding: 0.5rem 1rem; border-radius: 30px; font-size: 0.8rem; color: #2e405c; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>🧩 Company matcher <span class="sub">master vs. new list</span></h1>
+  <p style="color: #2e405c;">Paste your <strong>master list</strong> (companies you already have) and the <strong>new list</strong> you want to check.  
+  The tool compares <strong>name + URL</strong> and shows similarity % so you can decide if it’s a duplicate or a new entry.</p>
+  <div class="example">📌 Format: one company per line → <code>Name, https://example.com</code>  (or just URL)</div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <label>📂 Master list (existing)</label>
+    <textarea id="masterInput" placeholder="Paste your master list here...&#10;e.g.&#10;Google, https://google.com&#10;Microsoft, https://microsoft.com">Google, https://google.com
+Microsoft, https://microsoft.com/about
+Apple, https://apple.com</textarea>
+  </div>
+  <div class="card">
+    <label>📄 New list (to check)</label>
+    <textarea id="newInput" placeholder="Paste the new list here...&#10;e.g.&#10;Google, https://google.com&#10;Alphabet, https://abc.xyz">Google, https://google.com
+Alphabet, https://abc.xyz
+Apple, https://apple.com
+Microsoft, https://microsoft.com</textarea>
+  </div>
+</div>
+
+<div class="flex">
+  <button class="btn" id="compareBtn">🔎 Compare lists</button>
+  <button class="btn btn-outline" id="clearBtn">Clear results</button>
+  <span class="stats" id="statsDisplay">📊 <span id="statNew">0</span> new · <span id="statOld">0</span> old · <span id="statSimilar">0</span> similar</span>
+</div>
+
+<div class="card" id="resultContainer">
+  <div id="resultTableWrapper">
+    <div class="empty-state">⬆️ Paste both lists and click “Compare lists”</div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // ---------- helpers ----------
+    function normalizeUrl(url) {
+      if (!url) return '';
+      try {
+        let u = new URL(url.trim());
+        let host = u.hostname.replace(/^www\./, '');
+        let path = u.pathname.replace(/\/+$/, '') || '/';
+        // remove trailing slash, ignore common "about", "index" etc.
+        let cleanPath = path.replace(/\/index(\.html?)?$/i, '').replace(/\/about$/i, '').replace(/\/$/,'');
+        if (!cleanPath) cleanPath = '/';
+        return (host + cleanPath).toLowerCase();
+      } catch {
+        return url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      }
+    }
+
+    function normalizeName(name) {
+      return name.trim().toLowerCase().replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '');
+    }
+
+    function parseList(text) {
+      const lines = text.split(/\n/).filter(line => line.trim() !== '');
+      return lines.map(line => {
+        // try comma separated: "name, url"
+        let parts = line.split(',').map(s => s.trim());
+        let name = parts[0] || '';
+        let url = parts.slice(1).join(',').trim();
+        // if no comma, treat whole line as URL, extract name from domain
+        if (!url && name) {
+          try {
+            let u = new URL(name);
+            let host = u.hostname.replace(/^www\./, '');
+            let domain = host.split('.')[0] || host;
+            name = domain.charAt(0).toUpperCase() + domain.slice(1);
+            url = name;
+          } catch {
+            url = name;
+            name = 'unknown';
+          }
+        }
+        // if url missing, try to use name as url
+        if (!url && name) url = name;
+        return { raw: line, name: name, url: url };
+      });
+    }
+
+    function getSimilarity(str1, str2) {
+      if (!str1 || !str2) return 0;
+      const a = str1.toLowerCase(), b = str2.toLowerCase();
+      if (a === b) return 100;
+      if (a.includes(b) || b.includes(a)) {
+        const longer = a.length > b.length ? a : b;
+        const shorter = a.length > b.length ? b : a;
+        return Math.round((shorter.length / longer.length) * 100);
+      }
+      // simple char-based similarity (quick)
+      let matches = 0;
+      const maxLen = Math.max(a.length, b.length);
+      for (let i = 0; i < Math.min(a.length, b.length); i++) {
+        if (a[i] === b[i]) matches++;
+      }
+      return Math.round((matches / maxLen) * 100);
+    }
+
+    // ---------- main comparison ----------
+    function compareLists(masterText, newText) {
+      const masterItems = parseList(masterText);
+      const newItems = parseList(newText);
+
+      if (masterItems.length === 0 || newItems.length === 0) {
+        return { results: [], stats: { new: 0, old: 0, similar: 0 } };
+      }
+
+      const results = [];
+      let newCount = 0, oldCount = 0, similarCount = 0;
+
+      for (const newItem of newItems) {
+        let bestMatch = null;
+        let bestScore = 0;
+        let matchType = 'new';
+        let matchedMaster = null;
+        let nameSim = 0, urlSim = 0;
+
+        for (const master of masterItems) {
+          const nName = normalizeName(newItem.name);
+          const mName = normalizeName(master.name);
+          const nameSimilarity = getSimilarity(nName, mName);
+
+          const nUrl = normalizeUrl(newItem.url);
+          const mUrl = normalizeUrl(master.url);
+          const urlSimilarity = getSimilarity(nUrl, mUrl);
+
+          // combined score: weighted, url more important
+          let combined = (nameSimilarity * 0.4) + (urlSimilarity * 0.6);
+          if (nUrl === mUrl) combined = 100;
+          if (nName === mName) combined = Math.max(combined, 85);
+
+          if (combined > bestScore) {
+            bestScore = combined;
+            bestMatch = master;
+            nameSim = nameSimilarity;
+            urlSim = urlSimilarity;
+          }
+        }
+
+        // threshold: > 75% similar → old, between 60-75 → similar, < 60 → new
+        let status = 'new';
+        let statusLabel = '🆕 NEW';
+        let tagClass = 'tag-new';
+        if (bestScore >= 75) {
+          status = 'old';
+          statusLabel = '🔄 OLD';
+          tagClass = 'tag-old';
+          oldCount++;
+        } else if (bestScore >= 55) {
+          status = 'similar';
+          statusLabel = '⚠️ SIMILAR';
+          tagClass = 'tag-similar';
+          similarCount++;
+        } else {
+          newCount++;
+        }
+
+        results.push({
+          newItem: newItem,
+          masterMatch: bestMatch,
+          similarity: bestScore,
+          nameSim: nameSim,
+          urlSim: urlSim,
+          status: status,
+          statusLabel: statusLabel,
+          tagClass: tagClass
+        });
+      }
+
+      return { results, stats: { new: newCount, old: oldCount, similar: similarCount } };
+    }
+
+    // ---------- render ----------
+    function renderResults(resultData) {
+      const wrapper = document.getElementById('resultTableWrapper');
+      const statsDiv = document.getElementById('statsDisplay');
+      const statNew = document.getElementById('statNew');
+      const statOld = document.getElementById('statOld');
+      const statSimilar = document.getElementById('statSimilar');
+
+      if (!resultData || resultData.results.length === 0) {
+        wrapper.innerHTML = `<div class="empty-state">📭 No results to show. Paste both lists and compare.</div>`;
+        statNew.textContent = '0'; statOld.textContent = '0'; statSimilar.textContent = '0';
+        return;
+      }
+
+      const { results, stats } = resultData;
+      statNew.textContent = stats.new;
+      statOld.textContent = stats.old;
+      statSimilar.textContent = stats.similar;
+
+      let html = `<table>
+        <thead><tr>
+          <th>#</th>
+          <th>Company (new)</th>
+          <th>URL (new)</th>
+          <th>Status</th>
+          <th>Match</th>
+          <th>Similarity</th>
+          <th>Name %</th>
+          <th>URL %</th>
+        </tr></thead><tbody>`;
+
+      results.forEach((r, idx) => {
+        const newName = r.newItem.name || '—';
+        const newUrl = r.newItem.url || '—';
+        const masterName = r.masterMatch ? r.masterMatch.name : '—';
+        const masterUrl = r.masterMatch ? r.masterMatch.url : '—';
+        const sim = r.similarity;
+
+        html += `<tr>
+          <td>${idx+1}</td>
+          <td><strong>${newName}</strong></td>
+          <td class="url">${newUrl}</td>
+          <td><span class="tag ${r.tagClass}">${r.statusLabel}</span></td>
+          <td>${masterName !== '—' ? masterName : '❌ no match'}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div class="sim-bar"><div class="sim-fill" style="width:${Math.min(sim,100)}%;"></div></div>
+              <span>${sim}%</span>
+            </div>
+          </td>
+          <td>${r.nameSim}%</td>
+          <td>${r.urlSim}%</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table>`;
+      wrapper.innerHTML = html;
+    }
+
+    // ---------- event binding ----------
+    document.getElementById('compareBtn').addEventListener('click', function() {
+      const masterText = document.getElementById('masterInput').value;
+      const newText = document.getElementById('newInput').value;
+      if (!masterText.trim() || !newText.trim()) {
+        alert('Please paste both master list and new list.');
+        return;
+      }
+      const data = compareLists(masterText, newText);
+      renderResults(data);
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', function() {
+      document.getElementById('masterInput').value = '';
+      document.getElementById('newInput').value = '';
+      document.getElementById('resultTableWrapper').innerHTML = `<div class="empty-state">⬆️ Lists cleared. Paste new data and compare.</div>`;
+      document.getElementById('statNew').textContent = '0';
+      document.getElementById('statOld').textContent = '0';
+      document.getElementById('statSimilar').textContent = '0';
+    });
+
+    // optional: auto-compare with example data on load
+    window.addEventListener('load', function() {
+      // example already pre-filled, trigger compare after small delay
+      setTimeout(() => {
+        document.getElementById('compareBtn').click();
+      }, 300);
+    });
+
+  })();
+</script>
+
+</body>
+</html>
