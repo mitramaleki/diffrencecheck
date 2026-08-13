@@ -26,12 +26,14 @@
     .btn:hover { background: #0f1a2b; transform: scale(1.01); }
     .btn-outline { background: transparent; border: 1px solid #1e2b3c; color: #1e2b3c; margin-left: 0.8rem; }
     .btn-outline:hover { background: #eef3fa; }
+    .btn-success { background: #1e7e34; color: white; border: none; padding: 0.8rem 2rem; border-radius: 40px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+    .btn-success:hover { background: #136a2a; transform: scale(1.01); }
     .flex { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1.5rem 0; }
     .stats { background: #eef3fa; padding: 1rem 1.5rem; border-radius: 60px; font-size: 0.95rem; display: inline-flex; gap: 2rem; }
     .stats span { font-weight: 600; }
     
     table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th { text-align: left; padding: 0.7rem 0.5rem; border-bottom: 2px solid #dde3ed; color: #1f2a3c; }
+    th { text-align: left; padding: 0.7rem 0.5rem; border-bottom: 2px solid #dde3ed; color: #1f2a3c; position: sticky; top: 0; background: white; z-index: 10; }
     td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #eaedf3; vertical-align: middle; }
     .tag { display: inline-block; padding: 0.2rem 0.8rem; border-radius: 40px; font-weight: 500; font-size: 0.75rem; }
     .tag-new { background: #d4edda; color: #0e5e2b; }
@@ -45,6 +47,8 @@
     .hint { font-size: 0.8rem; color: #5e7089; margin-top: 0.2rem; }
     .toggle-label { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; color: #1e2b3c; background: #eef3fa; padding: 0.3rem 1rem; border-radius: 40px; }
     .toggle-label input { accent-color: #1e2b3c; width: 18px; height: 18px; }
+    
+    .table-wrapper { max-height: 500px; overflow-y: auto; border-radius: 12px; border: 1px solid #dde3ed; }
   </style>
 </head>
 <body>
@@ -52,7 +56,7 @@
 <div class="card">
   <h1>🧩 Company matcher <span class="sub">name + URL columns</span></h1>
   <p style="color: #2e405c;">Paste your <strong>master list</strong> and <strong>new list</strong> – each as <strong>two columns</strong>: Name (left) and URL (right).<br>
-  The tool compares both fields and shows similarity %.</p>
+  The tool compares both fields and shows similarity %. <strong>Download results as Excel (CSV).</strong></p>
 </div>
 
 <div class="grid-2">
@@ -77,6 +81,7 @@
 <div class="flex">
   <button class="btn" id="compareBtn">🔎 Compare lists</button>
   <button class="btn btn-outline" id="clearBtn">Clear results</button>
+  <button class="btn-success" id="exportBtn" style="display:none;">📥 Download Excel (CSV)</button>
   <span class="stats" id="statsDisplay">📊 <span id="statNew">0</span> new · <span id="statOld">0</span> old · <span id="statSimilar">0</span> similar</span>
 </div>
 
@@ -88,6 +93,8 @@
 
 <script>
   (function() {
+    let lastResultData = null;
+
     // ---------- helpers ----------
     function normalizeUrl(url) {
       if (!url) return '';
@@ -129,7 +136,6 @@
         let u = new URL(url.trim());
         let host = u.hostname.replace(/^www\./, '');
         let parts = host.split('.');
-        // return main domain part (e.g. "google" from "google.com")
         return parts.length > 1 ? parts[parts.length-2] : parts[0];
       } catch {
         return url.trim().toLowerCase().replace(/^https?:\/\//, '').split('.')[0] || '';
@@ -140,7 +146,6 @@
       const names = namesText.split(/\n/).map(s => s.trim()).filter(s => s !== '');
       const urls = urlsText.split(/\n/).map(s => s.trim()).filter(s => s !== '');
       
-      // If in URL-only mode, generate names from URLs
       if (isUrlOnlyMode) {
         const items = [];
         for (let i = 0; i < urls.length; i++) {
@@ -151,7 +156,6 @@
         return items;
       }
       
-      // Normal mode: combine names and URLs
       const maxLen = Math.max(names.length, urls.length);
       const items = [];
       for (let i = 0; i < maxLen; i++) {
@@ -238,19 +242,24 @@
       const statNew = document.getElementById('statNew');
       const statOld = document.getElementById('statOld');
       const statSimilar = document.getElementById('statSimilar');
+      const exportBtn = document.getElementById('exportBtn');
 
       if (!resultData || resultData.results.length === 0) {
         wrapper.innerHTML = `<div class="empty-state">📭 No results to show.</div>`;
         statNew.textContent = '0'; statOld.textContent = '0'; statSimilar.textContent = '0';
+        exportBtn.style.display = 'none';
         return;
       }
+
+      lastResultData = resultData;
+      exportBtn.style.display = 'inline-block';
 
       const { results, stats } = resultData;
       statNew.textContent = stats.new;
       statOld.textContent = stats.old;
       statSimilar.textContent = stats.similar;
 
-      let html = `<table>
+      let html = `<div class="table-wrapper"><table>
         <thead><tr>
           <th>#</th>
           <th>Company (new)</th>
@@ -286,8 +295,74 @@
         </tr>`;
       });
 
-      html += `</tbody></table>`;
+      html += `</tbody></table></div>`;
       wrapper.innerHTML = html;
+    }
+
+    // ---------- Excel Export ----------
+    function exportToCSV() {
+      if (!lastResultData || lastResultData.results.length === 0) {
+        alert('No data to export. Compare lists first.');
+        return;
+      }
+
+      const { results, stats } = lastResultData;
+      
+      // Build CSV rows
+      let rows = [
+        ['#', 'Company (new)', 'URL (new)', 'Status', 'Matched Company', 'Matched URL', 'Similarity %', 'Name Match %', 'URL Match %']
+      ];
+
+      results.forEach((r, idx) => {
+        const newName = r.newItem.name || '—';
+        const newUrl = r.newItem.url || '—';
+        const masterName = r.masterMatch ? r.masterMatch.name : '—';
+        const masterUrl = r.masterMatch ? r.masterMatch.url : '—';
+        const status = r.status.toUpperCase();
+        
+        rows.push([
+          idx + 1,
+          newName,
+          newUrl,
+          status,
+          masterName,
+          masterUrl,
+          r.similarity,
+          r.nameSim,
+          r.urlSim
+        ]);
+      });
+
+      // Add summary row
+      rows.push([]);
+      rows.push(['SUMMARY', '', '', '', '', '', '', '', '']);
+      rows.push(['NEW', stats.new, '', '', '', '', '', '', '']);
+      rows.push(['OLD', stats.old, '', '', '', '', '', '', '']);
+      rows.push(['SIMILAR', stats.similar, '', '', '', '', '', '', '']);
+      rows.push(['TOTAL', results.length, '', '', '', '', '', '', '']);
+
+      // Convert to CSV string
+      let csvContent = rows.map(row => 
+        row.map(cell => {
+          if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
+            return `"${cell.replace(/"/g, '""')}"`;
+          }
+          return cell;
+        }).join(',')
+      ).join('\n');
+
+      // Add BOM for UTF-8 support in Excel
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // Download
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `company_comparison_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
 
     // ---------- event binding ----------
@@ -297,7 +372,6 @@
       const newNames = document.getElementById('newNames').value;
       const newUrls = document.getElementById('newUrls').value;
 
-      // Check if we're in URL-only mode (names columns empty)
       const isUrlOnlyMode = !masterNames.trim() && !newNames.trim();
       
       if (!masterUrls.trim() || !newUrls.trim()) {
@@ -318,11 +392,14 @@
       document.getElementById('statNew').textContent = '0';
       document.getElementById('statOld').textContent = '0';
       document.getElementById('statSimilar').textContent = '0';
+      document.getElementById('exportBtn').style.display = 'none';
+      lastResultData = null;
     });
+
+    document.getElementById('exportBtn').addEventListener('click', exportToCSV);
 
     // auto-compare with example on load
     window.addEventListener('load', function() {
-      // Pre-fill with URL-only example
       document.getElementById('masterUrls').value = 'https://google.com\nhttps://microsoft.com\nhttps://apple.com';
       document.getElementById('newUrls').value = 'https://google.com\nhttps://abc.xyz\nhttps://apple.com\nhttps://microsoft.com';
       setTimeout(() => {
