@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔍 Company Matcher – Debug Mode</title>
+  <title>🔍 Company Matcher – Fixed URL Matching</title>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
     body { background: #f4f7fc; padding: 2rem 1rem; max-width: 1400px; margin: 0 auto; }
@@ -59,9 +59,9 @@
 <body>
 
 <div class="card">
-  <h1>🔍 Company Matcher <span class="sub">Debug Mode – see what's being matched</span></h1>
+  <h1>🔍 Company Matcher <span class="sub">Fixed URL Matching – handles bare domains</span></h1>
   <p style="color: #2e405c;">Paste your <strong>master list</strong> and <strong>new list</strong> – each as <strong>two columns</strong>: Name (left) and URL (right).<br>
-  This version shows <strong>debug info</strong> so you can see why matches are or aren't happening.</p>
+  <strong>Now handles:</strong> URLs with/without <code>http://</code>, <code>https://</code>, <code>www.</code>, and trailing slashes.</p>
 </div>
 
 <div class="grid-2">
@@ -76,10 +76,10 @@
   <div class="card">
     <label>📄 New list (to check)</label>
     <div class="split-input">
-      <textarea id="newNames" placeholder="Company names&#10;Google&#10;Alphabet&#10;Apple&#10;Microsoft"></textarea>
-      <textarea id="newUrls" placeholder="URLs&#10;https://google.com&#10;https://abc.xyz&#10;https://apple.com&#10;https://microsoft.com"></textarea>
+      <textarea id="newNames" placeholder="Company names (optional)&#10;Google&#10;Alphabet&#10;Apple&#10;Microsoft"></textarea>
+      <textarea id="newUrls" placeholder="URLs&#10;google.com&#10;abc.xyz&#10;apple.com&#10;microsoft.com"></textarea>
     </div>
-    <div class="hint">Left = name · Right = URL (one per line, matching order)</div>
+    <div class="hint">Left = name (optional) · Right = URL (one per line, matching order)</div>
   </div>
 </div>
 
@@ -114,22 +114,59 @@
     let isProcessing = false;
     let stopProcessing = false;
 
-    // ---------- IMPROVED URL NORMALIZATION ----------
+    // ============================================================
+    //  🔥 FIXED: Better URL normalization for bare domains
+    // ============================================================
     function normalizeUrl(url) {
       if (!url) return '';
-      try {
-        let u = new URL(url.trim());
-        let host = u.hostname.replace(/^www\./, '');
-        let path = u.pathname.replace(/\/+$/, '').replace(/\/index(\.html?)?$/i, '').replace(/\/about$/i, '');
-        if (!path) path = '';
-        return (host + path).toLowerCase();
-      } catch {
-        let clean = url.trim().toLowerCase()
-          .replace(/^https?:\/\//, '')
-          .replace(/^www\./, '')
-          .replace(/\/.*$/, '');
-        return clean;
+      let clean = url.trim().toLowerCase();
+      
+      // Remove protocol (http://, https://)
+      clean = clean.replace(/^https?:\/\//, '');
+      
+      // Remove www.
+      clean = clean.replace(/^www\./, '');
+      
+      // Remove trailing slash
+      clean = clean.replace(/\/+$/, '');
+      
+      // Remove everything after the domain (path, query, etc.)
+      // But keep the domain + first path level for matching
+      let parts = clean.split('/');
+      let domain = parts[0];
+      
+      // If there's a subdomain like "jobs.google.com", keep the full domain
+      // This handles both "google.com" and "jobs.google.com"
+      return domain;
+    }
+
+    // ============================================================
+    //  🔥 FIXED: Better name extraction from URL
+    // ============================================================
+    function extractDomainFromUrl(url) {
+      if (!url) return '';
+      let clean = url.trim().toLowerCase();
+      
+      // Remove protocol
+      clean = clean.replace(/^https?:\/\//, '');
+      
+      // Remove www.
+      clean = clean.replace(/^www\./, '');
+      
+      // Remove everything after domain
+      let parts = clean.split('/');
+      let domain = parts[0];
+      
+      // Get the main part of the domain (e.g., "google" from "google.com")
+      let domainParts = domain.split('.');
+      if (domainParts.length >= 2) {
+        // If it's like "google.com", take "google"
+        // If it's like "jobs.google.com", take "google"
+        let mainPart = domainParts[domainParts.length - 2];
+        // Capitalize first letter
+        return mainPart.charAt(0).toUpperCase() + mainPart.slice(1);
       }
+      return domainParts[0] || domain;
     }
 
     function normalizeName(name) {
@@ -153,27 +190,17 @@
       return Math.round((matches / maxLen) * 100);
     }
 
-    function extractDomainFromUrl(url) {
-      try {
-        let u = new URL(url.trim());
-        let host = u.hostname.replace(/^www\./, '');
-        let parts = host.split('.');
-        return parts.length > 1 ? parts[parts.length-2] : parts[0];
-      } catch {
-        return url.trim().toLowerCase().replace(/^https?:\/\//, '').split('.')[0] || '';
-      }
-    }
-
     function parseColumns(namesText, urlsText, isUrlOnlyMode) {
       const names = namesText.split(/\n/).map(s => s.trim()).filter(s => s !== '');
       const urls = urlsText.split(/\n/).map(s => s.trim()).filter(s => s !== '');
       
-      if (isUrlOnlyMode) {
+      if (isUrlOnlyMode || names.length === 0) {
         const items = [];
         for (let i = 0; i < urls.length; i++) {
           const url = urls[i] || '';
-          const name = url ? extractDomainFromUrl(url) : `item-${i+1}`;
-          items.push({ name: name, url: url });
+          // Extract name from URL
+          let name = extractDomainFromUrl(url);
+          items.push({ name: name || `item-${i+1}`, url: url });
         }
         return items;
       }
@@ -198,7 +225,7 @@
         
         const nName = normalizeName(newItem.name);
         const nUrl = normalizeUrl(newItem.url);
-        const domain = nUrl.split('/')[0] || '';
+        const domain = nUrl.split('.')[0] || ''; // For domain matching
 
         let bestMatch = null;
         let bestScore = 0;
@@ -229,7 +256,7 @@
           }
         }
 
-        // Try domain match
+        // Try domain match (check if domain appears in master URLs)
         if (bestScore < 70 && domain && domainIndex[domain]) {
           const domainMatchesList = domainIndex[domain] || [];
           for (const masterIdx of domainMatchesList) {
@@ -314,7 +341,6 @@
         });
       }
 
-      // Update debug info
       debug.urlMatches += urlMatches;
       debug.nameMatches += nameMatches;
       debug.domainMatches += domainMatches;
@@ -345,7 +371,8 @@
       masterItems.forEach((item, idx) => {
         const nName = normalizeName(item.name);
         const nUrl = normalizeUrl(item.url);
-        const domain = nUrl.split('/')[0] || '';
+        // For domain index, use first part of domain
+        const domain = nUrl.split('.')[0] || '';
 
         if (nName) nameIndex[nName] = idx;
         if (nUrl) urlIndex[nUrl] = idx;
@@ -360,11 +387,11 @@
       const debugText = document.getElementById('debugText');
       debugDiv.style.display = 'block';
       debugText.innerHTML = `
-        Master: ${masterItems.length.toLocaleString()} companies · 
-        New: ${newItems.length.toLocaleString()} companies · 
-        URL index: ${Object.keys(urlIndex).length} unique URLs · 
-        Name index: ${Object.keys(nameIndex).length} unique names · 
-        Domain index: ${Object.keys(domainIndex).length} unique domains
+        Master: ${masterItems.length.toLocaleString()} · 
+        New: ${newItems.length.toLocaleString()} · 
+        URL index: ${Object.keys(urlIndex).length} · 
+        Name index: ${Object.keys(nameIndex).length} · 
+        Domain index: ${Object.keys(domainIndex).length}
       `;
 
       let currentIdx = 0;
@@ -623,7 +650,7 @@
       const newUrls = document.getElementById('newUrls').value;
 
       const isUrlOnlyMode = !masterNames.trim() && !newNames.trim();
-      const chunkSize = parseInt(document.getElementById('chunkSize')?.value) || 1000;
+      const chunkSize = 1000;
       
       if (!masterUrls.trim() || !newUrls.trim()) {
         alert('Please paste at least the URL columns for both lists.');
@@ -676,7 +703,7 @@
 
     window.addEventListener('load', function() {
       document.getElementById('masterUrls').value = 'https://google.com\nhttps://microsoft.com\nhttps://apple.com';
-      document.getElementById('newUrls').value = 'https://google.com\nhttps://abc.xyz\nhttps://apple.com\nhttps://microsoft.com';
+      document.getElementById('newUrls').value = 'google.com\nabc.xyz\napple.com\nmicrosoft.com';
       setTimeout(() => {
         document.getElementById('compareBtn').click();
       }, 500);
