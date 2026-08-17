@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔍 Company Matcher – Fixed URL Matching</title>
+  <title>🔍 Company Matcher – Fixed Domain Matching</title>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
     body { background: #f4f7fc; padding: 2rem 1rem; max-width: 1400px; margin: 0 auto; }
@@ -59,27 +59,27 @@
 <body>
 
 <div class="card">
-  <h1>🔍 Company Matcher <span class="sub">Fixed URL Matching – handles bare domains</span></h1>
+  <h1>🔍 Company Matcher <span class="sub">Fixed Domain Matching</span></h1>
   <p style="color: #2e405c;">Paste your <strong>master list</strong> and <strong>new list</strong> – each as <strong>two columns</strong>: Name (left) and URL (right).<br>
-  <strong>Now handles:</strong> URLs with/without <code>http://</code>, <code>https://</code>, <code>www.</code>, and trailing slashes.</p>
+  <strong>Now properly matches domains</strong> – <code>warfieldtalent.com</code> will match <code>https://warfieldtalent.com/</code></p>
 </div>
 
 <div class="grid-2">
   <div class="card">
     <label>📂 Master list (existing)</label>
     <div class="split-input">
-      <textarea id="masterNames" placeholder="Company names&#10;Google&#10;Microsoft&#10;Apple"></textarea>
-      <textarea id="masterUrls" placeholder="URLs&#10;https://google.com&#10;https://microsoft.com&#10;https://apple.com"></textarea>
+      <textarea id="masterNames" placeholder="Company names"></textarea>
+      <textarea id="masterUrls" placeholder="URLs&#10;https://google.com&#10;https://microsoft.com"></textarea>
     </div>
-    <div class="hint">Left = name · Right = URL (one per line, matching order)</div>
+    <div class="hint">Left = name · Right = URL (one per line)</div>
   </div>
   <div class="card">
     <label>📄 New list (to check)</label>
     <div class="split-input">
-      <textarea id="newNames" placeholder="Company names (optional)&#10;Google&#10;Alphabet&#10;Apple&#10;Microsoft"></textarea>
-      <textarea id="newUrls" placeholder="URLs&#10;google.com&#10;abc.xyz&#10;apple.com&#10;microsoft.com"></textarea>
+      <textarea id="newNames" placeholder="Company names (optional)"></textarea>
+      <textarea id="newUrls" placeholder="URLs&#10;google.com&#10;microsoft.com"></textarea>
     </div>
-    <div class="hint">Left = name (optional) · Right = URL (one per line, matching order)</div>
+    <div class="hint">Left = name (optional) · Right = URL (one per line)</div>
   </div>
 </div>
 
@@ -115,35 +115,9 @@
     let stopProcessing = false;
 
     // ============================================================
-    //  🔥 FIXED: Better URL normalization for bare domains
+    //  🔥 FIXED: Extract full domain (e.g., "warfieldtalent.com")
     // ============================================================
-    function normalizeUrl(url) {
-      if (!url) return '';
-      let clean = url.trim().toLowerCase();
-      
-      // Remove protocol (http://, https://)
-      clean = clean.replace(/^https?:\/\//, '');
-      
-      // Remove www.
-      clean = clean.replace(/^www\./, '');
-      
-      // Remove trailing slash
-      clean = clean.replace(/\/+$/, '');
-      
-      // Remove everything after the domain (path, query, etc.)
-      // But keep the domain + first path level for matching
-      let parts = clean.split('/');
-      let domain = parts[0];
-      
-      // If there's a subdomain like "jobs.google.com", keep the full domain
-      // This handles both "google.com" and "jobs.google.com"
-      return domain;
-    }
-
-    // ============================================================
-    //  🔥 FIXED: Better name extraction from URL
-    // ============================================================
-    function extractDomainFromUrl(url) {
+    function getFullDomain(url) {
       if (!url) return '';
       let clean = url.trim().toLowerCase();
       
@@ -153,20 +127,38 @@
       // Remove www.
       clean = clean.replace(/^www\./, '');
       
-      // Remove everything after domain
+      // Remove trailing slash and everything after
       let parts = clean.split('/');
       let domain = parts[0];
       
-      // Get the main part of the domain (e.g., "google" from "google.com")
-      let domainParts = domain.split('.');
-      if (domainParts.length >= 2) {
-        // If it's like "google.com", take "google"
-        // If it's like "jobs.google.com", take "google"
-        let mainPart = domainParts[domainParts.length - 2];
-        // Capitalize first letter
-        return mainPart.charAt(0).toUpperCase() + mainPart.slice(1);
+      return domain;
+    }
+
+    // ============================================================
+    //  🔥 FIXED: Extract root domain (e.g., "warfieldtalent")
+    // ============================================================
+    function getRootDomain(url) {
+      if (!url) return '';
+      let domain = getFullDomain(url);
+      let parts = domain.split('.');
+      if (parts.length >= 2) {
+        // Return everything except the TLD (.com, .net, etc.)
+        return parts.slice(0, -1).join('.');
       }
-      return domainParts[0] || domain;
+      return domain;
+    }
+
+    function normalizeUrl(url) {
+      return getFullDomain(url);
+    }
+
+    function extractDomainFromUrl(url) {
+      let root = getRootDomain(url);
+      // Capitalize first letter
+      if (root) {
+        return root.charAt(0).toUpperCase() + root.slice(1);
+      }
+      return url || '';
     }
 
     function normalizeName(name) {
@@ -198,7 +190,6 @@
         const items = [];
         for (let i = 0; i < urls.length; i++) {
           const url = urls[i] || '';
-          // Extract name from URL
           let name = extractDomainFromUrl(url);
           items.push({ name: name || `item-${i+1}`, url: url });
         }
@@ -216,23 +207,23 @@
     }
 
     // ---------- PROCESS A SINGLE CHUNK ----------
-    function processChunk(masterItems, newItems, chunkSize, startIdx, results, stats, nameIndex, urlIndex, domainIndex, debug) {
+    function processChunk(masterItems, newItems, chunkSize, startIdx, results, stats, urlIndex, nameIndex, debug) {
       const endIdx = Math.min(startIdx + chunkSize, newItems.length);
-      let urlMatches = 0, nameMatches = 0, domainMatches = 0, noMatches = 0;
+      let urlMatches = 0, nameMatches = 0, noMatches = 0;
       
       for (let i = startIdx; i < endIdx; i++) {
         const newItem = newItems[i];
         
         const nName = normalizeName(newItem.name);
         const nUrl = normalizeUrl(newItem.url);
-        const domain = nUrl.split('.')[0] || ''; // For domain matching
+        const nRoot = getRootDomain(newItem.url);
 
         let bestMatch = null;
         let bestScore = 0;
         let nameSim = 0, urlSim = 0;
         let matchType = 'none';
 
-        // Try exact URL match first
+        // 1. Try exact URL match (full domain)
         if (urlIndex[nUrl] !== undefined) {
           const master = masterItems[urlIndex[nUrl]];
           bestMatch = master;
@@ -243,12 +234,31 @@
           urlMatches++;
         }
 
-        // Try exact name match
-        if (bestScore < 85 && nName && nameIndex[nName] !== undefined) {
+        // 2. Try root domain match (e.g., "warfieldtalent" matches "warfieldtalent")
+        if (bestScore < 85 && nRoot) {
+          for (const [key, idx] of Object.entries(urlIndex)) {
+            const masterRoot = getRootDomain(key);
+            if (masterRoot === nRoot) {
+              const master = masterItems[idx];
+              if (bestScore < 85) {
+                bestMatch = master;
+                bestScore = 85;
+                nameSim = getSimilarity(nName, normalizeName(master.name));
+                urlSim = 100;
+                matchType = 'domain';
+                urlMatches++;
+                break;
+              }
+            }
+          }
+        }
+
+        // 3. Try exact name match
+        if (bestScore < 70 && nName && nameIndex[nName] !== undefined) {
           const master = masterItems[nameIndex[nName]];
-          if (bestScore < 85) {
+          if (bestScore < 70) {
             bestMatch = master;
-            bestScore = 85;
+            bestScore = 70;
             nameSim = 100;
             urlSim = getSimilarity(nUrl, normalizeUrl(master.url));
             matchType = 'name';
@@ -256,28 +266,7 @@
           }
         }
 
-        // Try domain match (check if domain appears in master URLs)
-        if (bestScore < 70 && domain && domainIndex[domain]) {
-          const domainMatchesList = domainIndex[domain] || [];
-          for (const masterIdx of domainMatchesList) {
-            const master = masterItems[masterIdx];
-            const mUrl = normalizeUrl(master.url);
-            const mName = normalizeName(master.name);
-            const uSim = getSimilarity(nUrl, mUrl);
-            const nSim = getSimilarity(nName, mName);
-            const combined = (nSim * 0.4) + (uSim * 0.6);
-            if (combined > bestScore) {
-              bestScore = combined;
-              bestMatch = master;
-              nameSim = nSim;
-              urlSim = uSim;
-              matchType = 'domain';
-              domainMatches++;
-            }
-          }
-        }
-
-        // If still no match, try name-based search (limited candidates)
+        // 4. Fuzzy name match (last resort)
         if (bestScore < 55 && nName) {
           let candidates = [];
           const nNameLower = nName;
@@ -295,7 +284,7 @@
             const mUrl = normalizeUrl(master.url);
             const nSim = getSimilarity(nName, mName);
             const uSim = getSimilarity(nUrl, mUrl);
-            const combined = (nSim * 0.4) + (uSim * 0.6);
+            const combined = (nSim * 0.5) + (uSim * 0.5);
             if (combined > bestScore) {
               bestScore = combined;
               bestMatch = master;
@@ -304,10 +293,11 @@
               matchType = 'fuzzy';
             }
           }
-          if (bestScore > 0 && matchType === 'fuzzy') noMatches++;
         }
 
-        if (bestScore === 0) noMatches++;
+        if (bestScore === 0 || matchType === 'none') {
+          noMatches++;
+        }
 
         let status = 'new';
         let statusLabel = '🆕 NEW';
@@ -343,7 +333,6 @@
 
       debug.urlMatches += urlMatches;
       debug.nameMatches += nameMatches;
-      debug.domainMatches += domainMatches;
       debug.noMatches += noMatches;
       debug.totalProcessed += (endIdx - startIdx);
 
@@ -361,25 +350,18 @@
 
       const results = [];
       const stats = { new: 0, old: 0, similar: 0 };
-      const debug = { urlMatches: 0, nameMatches: 0, domainMatches: 0, noMatches: 0, totalProcessed: 0 };
+      const debug = { urlMatches: 0, nameMatches: 0, noMatches: 0, totalProcessed: 0 };
       
-      // Build indexes ONCE
+      // Build indexes
       const nameIndex = {};
       const urlIndex = {};
-      const domainIndex = {};
 
       masterItems.forEach((item, idx) => {
         const nName = normalizeName(item.name);
         const nUrl = normalizeUrl(item.url);
-        // For domain index, use first part of domain
-        const domain = nUrl.split('.')[0] || '';
 
         if (nName) nameIndex[nName] = idx;
         if (nUrl) urlIndex[nUrl] = idx;
-        if (domain) {
-          if (!domainIndex[domain]) domainIndex[domain] = [];
-          domainIndex[domain].push(idx);
-        }
       });
 
       // Show debug info
@@ -390,8 +372,7 @@
         Master: ${masterItems.length.toLocaleString()} · 
         New: ${newItems.length.toLocaleString()} · 
         URL index: ${Object.keys(urlIndex).length} · 
-        Name index: ${Object.keys(nameIndex).length} · 
-        Domain index: ${Object.keys(domainIndex).length}
+        Name index: ${Object.keys(nameIndex).length}
       `;
 
       let currentIdx = 0;
@@ -405,7 +386,6 @@
         }
 
         if (currentIdx >= total) {
-          // Done
           const progressBar = document.getElementById('progressBar');
           const progressFill = document.getElementById('progressFill');
           const progressText = document.getElementById('progressText');
@@ -415,13 +395,11 @@
             progressBar.style.display = 'none'; 
           }, 1500);
           
-          // Show final debug
           debugText.innerHTML += `
             <br><br><strong>Match breakdown:</strong><br>
-            🔵 URL exact matches: ${debug.urlMatches.toLocaleString()}<br>
+            🔵 URL/domain matches: ${debug.urlMatches.toLocaleString()}<br>
             🟢 Name exact matches: ${debug.nameMatches.toLocaleString()}<br>
-            🟡 Domain matches: ${debug.domainMatches.toLocaleString()}<br>
-            ⚪ No match / fuzzy: ${debug.noMatches.toLocaleString()}<br>
+            ⚪ No match: ${debug.noMatches.toLocaleString()}<br>
             📊 Total processed: ${debug.totalProcessed.toLocaleString()}
           `;
           
@@ -446,29 +424,24 @@
         progressFill.style.width = pct + '%';
         progressText.textContent = `⏳ Processing ${currentIdx.toLocaleString()} of ${total.toLocaleString()} (${pct}%)...`;
 
-        // Process one chunk
         const newIdx = processChunk(
           masterItems, newItems, chunkSize, currentIdx, 
-          results, stats, nameIndex, urlIndex, domainIndex, debug
+          results, stats, urlIndex, nameIndex, debug
         );
         currentIdx = newIdx;
 
-        // Update stats display live
         document.getElementById('statNew').textContent = stats.new;
         document.getElementById('statOld').textContent = stats.old;
         document.getElementById('statSimilar').textContent = stats.similar;
 
-        // Update debug with live counts
         debugText.innerHTML = `
           Master: ${masterItems.length.toLocaleString()} · 
           New: ${total.toLocaleString()} · 
           URL index: ${Object.keys(urlIndex).length} · 
-          Name index: ${Object.keys(nameIndex).length} · 
-          Domain index: ${Object.keys(domainIndex).length}<br>
+          Name index: ${Object.keys(nameIndex).length}<br>
           <strong>Live match counts:</strong> 
-          URL: ${debug.urlMatches} · 
+          URL/domain: ${debug.urlMatches} · 
           Name: ${debug.nameMatches} · 
-          Domain: ${debug.domainMatches} · 
           No match: ${debug.noMatches}
         `;
 
@@ -519,8 +492,8 @@
         const realIdx = start + idx + 1;
         const matchTypeMap = {
           'url': '🔵 URL',
-          'name': '🟢 Name',
           'domain': '🟡 Domain',
+          'name': '🟢 Name',
           'fuzzy': '🟠 Fuzzy',
           'none': '⚪ None'
         };
