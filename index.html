@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔍 Company Matcher – name + URL columns</title>
+  <title>🔍 Company Matcher – Large List Support (28k+ companies)</title>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
     body { background: #f4f7fc; padding: 2rem 1rem; max-width: 1400px; margin: 0 auto; }
@@ -19,8 +19,7 @@
     .split-input textarea:last-child { border-left: none; border-radius: 0 14px 14px 0; }
     
     label { font-weight: 500; display: block; margin-bottom: 0.4rem; color: #1e2b3c; }
-    .label-row { display: flex; gap: 0.5rem; }
-    .label-row span { width: 50%; }
+    .hint { font-size: 0.8rem; color: #5e7089; margin-top: 0.2rem; }
     
     .btn { background: #1e2b3c; color: white; border: none; padding: 0.8rem 2rem; border-radius: 40px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.2s; }
     .btn:hover { background: #0f1a2b; transform: scale(1.01); }
@@ -32,9 +31,6 @@
     .stats { background: #eef3fa; padding: 1rem 1.5rem; border-radius: 60px; font-size: 0.95rem; display: inline-flex; gap: 2rem; }
     .stats span { font-weight: 600; }
     
-    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th { text-align: left; padding: 0.7rem 0.5rem; border-bottom: 2px solid #dde3ed; color: #1f2a3c; position: sticky; top: 0; background: white; z-index: 10; }
-    td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #eaedf3; vertical-align: middle; }
     .tag { display: inline-block; padding: 0.2rem 0.8rem; border-radius: 40px; font-weight: 500; font-size: 0.75rem; }
     .tag-new { background: #d4edda; color: #0e5e2b; }
     .tag-old { background: #fff3cd; color: #8a6d00; }
@@ -43,20 +39,31 @@
     .sim-fill { background: #1e2b3c; height: 6px; border-radius: 30px; }
     .url { color: #1d4a7a; word-break: break-all; font-size: 0.8rem; }
     .empty-state { text-align: center; padding: 2.5rem 0; color: #5e7089; }
-    .example { background: #f4f7fc; padding: 0.5rem 1rem; border-radius: 30px; font-size: 0.8rem; color: #2e405c; }
-    .hint { font-size: 0.8rem; color: #5e7089; margin-top: 0.2rem; }
-    .toggle-label { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; color: #1e2b3c; background: #eef3fa; padding: 0.3rem 1rem; border-radius: 40px; }
-    .toggle-label input { accent-color: #1e2b3c; width: 18px; height: 18px; }
-    
     .table-wrapper { max-height: 500px; overflow-y: auto; border-radius: 12px; border: 1px solid #dde3ed; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 0.6rem 0.4rem; border-bottom: 2px solid #dde3ed; color: #1f2a3c; position: sticky; top: 0; background: white; z-index: 10; }
+    td { padding: 0.4rem 0.4rem; border-bottom: 1px solid #eaedf3; vertical-align: middle; }
+    
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1e2b3c; color: white; padding: 1rem 2rem; border-radius: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 999; display: none; font-weight: 500; }
+    .progress-bar { height: 8px; background: #e6edf6; border-radius: 10px; margin: 1rem 0; overflow: hidden; display: none; }
+    .progress-fill { height: 100%; background: #1e2b3c; border-radius: 10px; width: 0%; transition: width 0.3s; }
+    .pagination { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
+    .pagination button { background: #eef3fa; border: 1px solid #d0d9e8; padding: 0.3rem 0.8rem; border-radius: 6px; cursor: pointer; }
+    .pagination button:hover { background: #dde3ed; }
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pagination .active { background: #1e2b3c; color: white; border-color: #1e2b3c; }
+    .mode-select { display: flex; gap: 1.5rem; align-items: center; background: #eef3fa; padding: 0.5rem 1.5rem; border-radius: 40px; }
+    .mode-select label { display: flex; align-items: center; gap: 0.4rem; font-weight: normal; cursor: pointer; font-size: 0.9rem; }
+    .mode-select input[type="radio"] { accent-color: #1e2b3c; width: 16px; height: 16px; }
+    .stats-summary { font-size: 0.85rem; color: #2e405c; margin: 0.5rem 0; }
   </style>
 </head>
 <body>
 
 <div class="card">
-  <h1>🧩 Company matcher <span class="sub">name + URL columns</span></h1>
+  <h1>🧩 Company Matcher <span class="sub">Large list support (28,000+ companies)</span></h1>
   <p style="color: #2e405c;">Paste your <strong>master list</strong> and <strong>new list</strong> – each as <strong>two columns</strong>: Name (left) and URL (right).<br>
-  The tool compares both fields and shows similarity %. <strong>Download results as Excel (CSV).</strong></p>
+  <strong>Optimized for large lists</strong> – uses indexing instead of comparing every pair. <strong>Fast mode</strong> is recommended for 10k+ companies.</p>
 </div>
 
 <div class="grid-2">
@@ -85,15 +92,30 @@
   <span class="stats" id="statsDisplay">📊 <span id="statNew">0</span> new · <span id="statOld">0</span> old · <span id="statSimilar">0</span> similar</span>
 </div>
 
+<div class="mode-select">
+  <span style="font-weight:600;font-size:0.9rem;">⚡ Mode:</span>
+  <label><input type="radio" name="mode" value="fast" checked> Fast (best guess, ~10x faster)</label>
+  <label><input type="radio" name="mode" value="accurate"> Accurate (slower, finds more matches)</label>
+</div>
+
+<div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+<div id="progressText" style="font-size:0.85rem;color:#5e7089;display:none;margin-bottom:0.5rem;">Processing...</div>
+
 <div class="card" id="resultContainer">
   <div id="resultTableWrapper">
-    <div class="empty-state">⬆️ Paste both lists and click “Compare lists”</div>
+    <div class="empty-state">⬆️ Paste both lists and click "Compare lists"</div>
   </div>
+  <div class="pagination" id="pagination" style="display:none;"></div>
 </div>
+
+<div class="toast" id="toast">✅ Excel file downloaded!</div>
 
 <script>
   (function() {
-    let lastResultData = null;
+    let allResults = [];
+    let currentPage = 1;
+    const pageSize = 200;
+    let lastStats = { new: 0, old: 0, similar: 0 };
 
     // ---------- helpers ----------
     function normalizeUrl(url) {
@@ -166,39 +188,205 @@
       return items;
     }
 
-    // ---------- main comparison ----------
-    function compareLists(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode) {
-      const masterItems = parseColumns(masterNames, masterUrls, isUrlOnlyMode);
-      const newItems = parseColumns(newNames, newUrls, isUrlOnlyMode);
-
-      if (masterItems.length === 0 || newItems.length === 0) {
-        return { results: [], stats: { new: 0, old: 0, similar: 0 } };
-      }
-
+    // ---------- FAST comparison using indexing ----------
+    function compareListsFast(masterItems, newItems) {
       const results = [];
       let newCount = 0, oldCount = 0, similarCount = 0;
 
-      for (const newItem of newItems) {
+      // Build index for master list
+      const nameIndex = {};
+      const urlIndex = {};
+      const domainIndex = {};
+
+      masterItems.forEach((item, idx) => {
+        const nName = normalizeName(item.name);
+        const nUrl = normalizeUrl(item.url);
+        const domain = nUrl.split('/')[0] || '';
+
+        if (nName) nameIndex[nName] = idx;
+        if (nUrl) urlIndex[nUrl] = idx;
+        if (domain) {
+          if (!domainIndex[domain]) domainIndex[domain] = [];
+          domainIndex[domain].push(idx);
+        }
+      });
+
+      const progressBar = document.getElementById('progressBar');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      progressBar.style.display = 'block';
+      progressText.style.display = 'block';
+
+      const total = newItems.length;
+
+      newItems.forEach((newItem, idx) => {
+        // Update progress every 50 items
+        if (idx % 50 === 0) {
+          const pct = Math.round((idx / total) * 100);
+          progressFill.style.width = pct + '%';
+          progressText.textContent = `Processing ${idx.toLocaleString()} of ${total.toLocaleString()} (${pct}%)...`;
+        }
+
+        const nName = normalizeName(newItem.name);
+        const nUrl = normalizeUrl(newItem.url);
+        const domain = nUrl.split('/')[0] || '';
+
         let bestMatch = null;
         let bestScore = 0;
         let nameSim = 0, urlSim = 0;
 
-        for (const master of masterItems) {
-          const nName = normalizeName(newItem.name);
-          const mName = normalizeName(master.name);
-          const nameSimilarity = getSimilarity(nName, mName);
+        // Try exact URL match first (O(1))
+        if (urlIndex[nUrl] !== undefined) {
+          const master = masterItems[urlIndex[nUrl]];
+          bestMatch = master;
+          bestScore = 100;
+          nameSim = getSimilarity(nName, normalizeName(master.name));
+          urlSim = 100;
+        }
 
-          const nUrl = normalizeUrl(newItem.url);
-          const mUrl = normalizeUrl(master.url);
-          const urlSimilarity = getSimilarity(nUrl, mUrl);
+        // Try exact name match
+        if (bestScore < 85 && nName && nameIndex[nName] !== undefined) {
+          const master = masterItems[nameIndex[nName]];
+          const score = 85;
+          if (score > bestScore) {
+            bestMatch = master;
+            bestScore = score;
+            nameSim = 100;
+            urlSim = getSimilarity(nUrl, normalizeUrl(master.url));
+          }
+        }
 
+        // Try domain match (fast approximate)
+        if (bestScore < 70 && domain && domainIndex[domain]) {
+          for (const masterIdx of domainIndex[domain]) {
+            const master = masterItems[masterIdx];
+            const mUrl = normalizeUrl(master.url);
+            const mName = normalizeName(master.name);
+            const uSim = getSimilarity(nUrl, mUrl);
+            const nSim = getSimilarity(nName, mName);
+            const combined = (nSim * 0.4) + (uSim * 0.6);
+            if (combined > bestScore) {
+              bestScore = combined;
+              bestMatch = master;
+              nameSim = nSim;
+              urlSim = uSim;
+            }
+          }
+        }
+
+        // If still no match, try name-based search (limited to 50 candidates for speed)
+        if (bestScore < 55 && nName) {
+          let candidates = [];
+          const nNameLower = nName;
+          for (const [key, idx] of Object.entries(nameIndex)) {
+            if (key.includes(nNameLower) || nNameLower.includes(key)) {
+              candidates.push(idx);
+            }
+            if (candidates.length > 50) break;
+          }
+          for (const masterIdx of candidates) {
+            const master = masterItems[masterIdx];
+            const mName = normalizeName(master.name);
+            const mUrl = normalizeUrl(master.url);
+            const nSim = getSimilarity(nName, mName);
+            const uSim = getSimilarity(nUrl, mUrl);
+            const combined = (nSim * 0.4) + (uSim * 0.6);
+            if (combined > bestScore) {
+              bestScore = combined;
+              bestMatch = master;
+              nameSim = nSim;
+              urlSim = uSim;
+            }
+          }
+        }
+
+        let status = 'new';
+        let statusLabel = '🆕 NEW';
+        let tagClass = 'tag-new';
+        if (bestScore >= 75) {
+          status = 'old';
+          statusLabel = '🔄 OLD';
+          tagClass = 'tag-old';
+          oldCount++;
+        } else if (bestScore >= 55) {
+          status = 'similar';
+          statusLabel = '⚠️ SIMILAR';
+          tagClass = 'tag-similar';
+          similarCount++;
+        } else {
+          newCount++;
+        }
+
+        results.push({
+          newName: newItem.name || '—',
+          newUrl: newItem.url || '—',
+          matchedName: bestMatch ? bestMatch.name : '—',
+          matchedUrl: bestMatch ? bestMatch.url : '—',
+          similarity: bestScore,
+          nameSim: nameSim,
+          urlSim: urlSim,
+          status: status,
+          statusLabel: statusLabel,
+          tagClass: tagClass
+        });
+      });
+
+      progressFill.style.width = '100%';
+      progressText.textContent = `✅ Done! Processed ${total.toLocaleString()} companies.`;
+      setTimeout(() => { 
+        progressBar.style.display = 'none'; 
+        progressText.style.display = 'none';
+      }, 1500);
+
+      return { results, stats: { new: newCount, old: oldCount, similar: similarCount } };
+    }
+
+    // ---------- ACCURATE comparison (slower, more thorough) ----------
+    function compareListsAccurate(masterItems, newItems) {
+      const results = [];
+      let newCount = 0, oldCount = 0, similarCount = 0;
+
+      const progressBar = document.getElementById('progressBar');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      progressBar.style.display = 'block';
+      progressText.style.display = 'block';
+
+      // Pre-compute normalized values for master
+      const masterNorm = masterItems.map(item => ({
+        name: normalizeName(item.name),
+        url: normalizeUrl(item.url),
+        item: item
+      }));
+
+      const total = newItems.length;
+
+      newItems.forEach((newItem, idx) => {
+        if (idx % 20 === 0) {
+          const pct = Math.round((idx / total) * 100);
+          progressFill.style.width = pct + '%';
+          progressText.textContent = `Processing ${idx.toLocaleString()} of ${total.toLocaleString()} (${pct}%)...`;
+        }
+
+        const nName = normalizeName(newItem.name);
+        const nUrl = normalizeUrl(newItem.url);
+
+        let bestMatch = null;
+        let bestScore = 0;
+        let nameSim = 0, urlSim = 0;
+
+        // Check all masters (accurate but slower)
+        for (const master of masterNorm) {
+          const nameSimilarity = getSimilarity(nName, master.name);
+          const urlSimilarity = getSimilarity(nUrl, master.url);
           let combined = (nameSimilarity * 0.4) + (urlSimilarity * 0.6);
-          if (nUrl && mUrl && nUrl === mUrl) combined = 100;
-          if (nName && mName && nName === mName) combined = Math.max(combined, 85);
+          
+          if (nUrl && master.url && nUrl === master.url) combined = 100;
+          if (nName && master.name && nName === master.name) combined = Math.max(combined, 85);
 
           if (combined > bestScore) {
             bestScore = combined;
-            bestMatch = master;
+            bestMatch = master.item;
             nameSim = nameSimilarity;
             urlSim = urlSimilarity;
           }
@@ -222,8 +410,10 @@
         }
 
         results.push({
-          newItem: newItem,
-          masterMatch: bestMatch,
+          newName: newItem.name || '—',
+          newUrl: newItem.url || '—',
+          matchedName: bestMatch ? bestMatch.name : '—',
+          matchedUrl: bestMatch ? bestMatch.url : '—',
           similarity: bestScore,
           nameSim: nameSim,
           urlSim: urlSim,
@@ -231,33 +421,72 @@
           statusLabel: statusLabel,
           tagClass: tagClass
         });
-      }
+      });
+
+      progressFill.style.width = '100%';
+      progressText.textContent = `✅ Done! Processed ${total.toLocaleString()} companies.`;
+      setTimeout(() => { 
+        progressBar.style.display = 'none'; 
+        progressText.style.display = 'none';
+      }, 1500);
 
       return { results, stats: { new: newCount, old: oldCount, similar: similarCount } };
     }
 
-    // ---------- render ----------
+    // ---------- main comparison ----------
+    function compareLists(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode, mode) {
+      const masterItems = parseColumns(masterNames, masterUrls, isUrlOnlyMode);
+      const newItems = parseColumns(newNames, newUrls, isUrlOnlyMode);
+
+      if (masterItems.length === 0 || newItems.length === 0) {
+        return { results: [], stats: { new: 0, old: 0, similar: 0 } };
+      }
+
+      if (mode === 'fast') {
+        return compareListsFast(masterItems, newItems);
+      } else {
+        return compareListsAccurate(masterItems, newItems);
+      }
+    }
+
+    // ---------- render with pagination ----------
     function renderResults(resultData) {
       const wrapper = document.getElementById('resultTableWrapper');
       const statNew = document.getElementById('statNew');
       const statOld = document.getElementById('statOld');
       const statSimilar = document.getElementById('statSimilar');
       const exportBtn = document.getElementById('exportBtn');
+      const paginationDiv = document.getElementById('pagination');
 
       if (!resultData || resultData.results.length === 0) {
         wrapper.innerHTML = `<div class="empty-state">📭 No results to show.</div>`;
         statNew.textContent = '0'; statOld.textContent = '0'; statSimilar.textContent = '0';
         exportBtn.style.display = 'none';
+        paginationDiv.style.display = 'none';
+        allResults = [];
         return;
       }
 
-      lastResultData = resultData;
+      allResults = resultData.results;
+      lastStats = resultData.stats;
+      currentPage = 1;
       exportBtn.style.display = 'inline-block';
 
-      const { results, stats } = resultData;
-      statNew.textContent = stats.new;
-      statOld.textContent = stats.old;
-      statSimilar.textContent = stats.similar;
+      statNew.textContent = resultData.stats.new;
+      statOld.textContent = resultData.stats.old;
+      statSimilar.textContent = resultData.stats.similar;
+
+      renderPage();
+    }
+
+    function renderPage() {
+      const wrapper = document.getElementById('resultTableWrapper');
+      const paginationDiv = document.getElementById('pagination');
+      
+      const totalPages = Math.ceil(allResults.length / pageSize);
+      const start = (currentPage - 1) * pageSize;
+      const end = Math.min(start + pageSize, allResults.length);
+      const pageResults = allResults.slice(start, end);
 
       let html = `<div class="table-wrapper"><table>
         <thead><tr>
@@ -271,23 +500,18 @@
           <th>URL %</th>
         </tr></thead><tbody>`;
 
-      results.forEach((r, idx) => {
-        const newName = r.newItem.name || '—';
-        const newUrl = r.newItem.url || '—';
-        const masterName = r.masterMatch ? r.masterMatch.name : '—';
-        const masterUrl = r.masterMatch ? r.masterMatch.url : '—';
-        const sim = r.similarity;
-
+      pageResults.forEach((r, idx) => {
+        const realIdx = start + idx + 1;
         html += `<tr>
-          <td>${idx+1}</td>
-          <td><strong>${newName}</strong></td>
-          <td class="url">${newUrl}</td>
+          <td>${realIdx}</td>
+          <td><strong>${r.newName}</strong></td>
+          <td class="url">${r.newUrl}</td>
           <td><span class="tag ${r.tagClass}">${r.statusLabel}</span></td>
-          <td>${masterName !== '—' ? masterName : '❌ no match'}</td>
+          <td>${r.matchedName}</td>
           <td>
             <div style="display:flex;align-items:center;gap:6px;">
-              <div class="sim-bar"><div class="sim-fill" style="width:${Math.min(sim,100)}%;"></div></div>
-              <span>${sim}%</span>
+              <div class="sim-bar"><div class="sim-fill" style="width:${Math.min(r.similarity,100)}%;"></div></div>
+              <span>${r.similarity}%</span>
             </div>
           </td>
           <td>${r.nameSim}%</td>
@@ -297,64 +521,80 @@
 
       html += `</tbody></table></div>`;
       wrapper.innerHTML = html;
+
+      // Pagination controls
+      if (totalPages > 1) {
+        paginationDiv.style.display = 'flex';
+        let pagHtml = `<span style="font-size:0.85rem;color:#5e7089;">${allResults.length.toLocaleString()} results · Page ${currentPage} of ${totalPages}</span>`;
+        pagHtml += `<button onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}>⏮</button>`;
+        pagHtml += `<button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>◀</button>`;
+        
+        let startPage = Math.max(1, currentPage - 3);
+        let endPage = Math.min(totalPages, currentPage + 3);
+        for (let i = startPage; i <= endPage; i++) {
+          pagHtml += `<button onclick="goToPage(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+        }
+        
+        pagHtml += `<button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>▶</button>`;
+        pagHtml += `<button onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>⏭</button>`;
+        paginationDiv.innerHTML = pagHtml;
+      } else {
+        paginationDiv.style.display = 'none';
+      }
     }
+
+    window.goToPage = function(page) {
+      const totalPages = Math.ceil(allResults.length / pageSize);
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderPage();
+      document.getElementById('resultTableWrapper').scrollIntoView({ behavior: 'smooth' });
+    };
 
     // ---------- Excel Export ----------
     function exportToCSV() {
-      if (!lastResultData || lastResultData.results.length === 0) {
+      if (!allResults || allResults.length === 0) {
         alert('No data to export. Compare lists first.');
         return;
       }
 
-      const { results, stats } = lastResultData;
-      
-      // Build CSV rows
       let rows = [
         ['#', 'Company (new)', 'URL (new)', 'Status', 'Matched Company', 'Matched URL', 'Similarity %', 'Name Match %', 'URL Match %']
       ];
 
-      results.forEach((r, idx) => {
-        const newName = r.newItem.name || '—';
-        const newUrl = r.newItem.url || '—';
-        const masterName = r.masterMatch ? r.masterMatch.name : '—';
-        const masterUrl = r.masterMatch ? r.masterMatch.url : '—';
-        const status = r.status.toUpperCase();
-        
+      allResults.forEach((r, idx) => {
         rows.push([
           idx + 1,
-          newName,
-          newUrl,
-          status,
-          masterName,
-          masterUrl,
+          r.newName,
+          r.newUrl,
+          r.status.toUpperCase(),
+          r.matchedName,
+          r.matchedUrl,
           r.similarity,
           r.nameSim,
           r.urlSim
         ]);
       });
 
-      // Add summary row
       rows.push([]);
-      rows.push(['SUMMARY', '', '', '', '', '', '', '', '']);
-      rows.push(['NEW', stats.new, '', '', '', '', '', '', '']);
-      rows.push(['OLD', stats.old, '', '', '', '', '', '', '']);
-      rows.push(['SIMILAR', stats.similar, '', '', '', '', '', '', '']);
-      rows.push(['TOTAL', results.length, '', '', '', '', '', '', '']);
+      rows.push(['=== SUMMARY ===', '', '', '', '', '', '', '', '']);
+      rows.push(['NEW', lastStats.new, '', '', '', '', '', '', '']);
+      rows.push(['OLD', lastStats.old, '', '', '', '', '', '', '']);
+      rows.push(['SIMILAR', lastStats.similar, '', '', '', '', '', '', '']);
+      rows.push(['TOTAL', allResults.length, '', '', '', '', '', '', '']);
 
-      // Convert to CSV string
       let csvContent = rows.map(row => 
         row.map(cell => {
-          if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
-            return `"${cell.replace(/"/g, '""')}"`;
+          if (cell === null || cell === undefined) return '';
+          const str = String(cell);
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
           }
-          return cell;
+          return str;
         }).join(',')
       ).join('\n');
 
-      // Add BOM for UTF-8 support in Excel
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      
-      // Download
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
@@ -363,6 +603,10 @@
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+
+      const toast = document.getElementById('toast');
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
     }
 
     // ---------- event binding ----------
@@ -373,14 +617,27 @@
       const newUrls = document.getElementById('newUrls').value;
 
       const isUrlOnlyMode = !masterNames.trim() && !newNames.trim();
+      const mode = document.querySelector('input[name="mode"]:checked').value;
       
       if (!masterUrls.trim() || !newUrls.trim()) {
         alert('Please paste at least the URL columns for both lists.');
         return;
       }
       
-      const data = compareLists(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode);
-      renderResults(data);
+      // Show progress
+      const progressBar = document.getElementById('progressBar');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      progressBar.style.display = 'block';
+      progressText.style.display = 'block';
+      progressFill.style.width = '0%';
+      progressText.textContent = 'Starting comparison...';
+
+      // Use setTimeout to let UI update before heavy processing
+      setTimeout(() => {
+        const data = compareLists(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode, mode);
+        renderResults(data);
+      }, 100);
     });
 
     document.getElementById('clearBtn').addEventListener('click', function() {
@@ -393,7 +650,10 @@
       document.getElementById('statOld').textContent = '0';
       document.getElementById('statSimilar').textContent = '0';
       document.getElementById('exportBtn').style.display = 'none';
-      lastResultData = null;
+      document.getElementById('pagination').style.display = 'none';
+      document.getElementById('progressBar').style.display = 'none';
+      document.getElementById('progressText').style.display = 'none';
+      allResults = [];
     });
 
     document.getElementById('exportBtn').addEventListener('click', exportToCSV);
@@ -404,7 +664,7 @@
       document.getElementById('newUrls').value = 'https://google.com\nhttps://abc.xyz\nhttps://apple.com\nhttps://microsoft.com';
       setTimeout(() => {
         document.getElementById('compareBtn').click();
-      }, 300);
+      }, 500);
     });
 
   })();
