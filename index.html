@@ -57,6 +57,8 @@
     .mode-select input[type="radio"] { accent-color: #1e2b3c; width: 16px; height: 16px; }
     #progressText { font-size: 0.9rem; color: #1e2b3c; margin: 0.5rem 0; display: none; font-weight: 500; }
     .chunk-info { background: #eef3fa; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; display: inline-block; margin: 0.5rem 0; }
+    .stats-summary { display: flex; gap: 2rem; flex-wrap: wrap; margin: 0.5rem 0; }
+    .stats-summary span { font-weight: 600; }
   </style>
 </head>
 <body>
@@ -97,7 +99,7 @@
   <span style="font-weight:600;font-size:0.9rem;">⚡ Mode:</span>
   <label><input type="radio" name="mode" value="fast" checked> Fast (~10x faster)</label>
   <label><input type="radio" name="mode" value="accurate"> Accurate (slower, more matches)</label>
-  <span style="font-size:0.8rem;color:#5e7089;margin-left:0.5rem;">Chunk size: <select id="chunkSize"><option value="500">500</option><option value="1000" selected>1,000</option><option value="2000">2,000</option><option value="5000">5,000</option></select></span>
+  <span style="font-size:0.8rem;color:#5e7089;margin-left:0.5rem;">Chunk size: <select id="chunkSize"><option value="200">200</option><option value="500">500</option><option value="1000" selected>1,000</option><option value="2000">2,000</option><option value="5000">5,000</option></select></span>
 </div>
 
 <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
@@ -193,42 +195,10 @@
       return items;
     }
 
-    // ---------- CHUNKED PROCESSING ----------
-    function processChunk(masterItems, newItems, mode, chunkSize, startIdx, results, stats) {
+    // ---------- PROCESS A SINGLE CHUNK ----------
+    function processChunk(masterItems, newItems, mode, chunkSize, startIdx, results, stats, nameIndex, urlIndex, domainIndex) {
       const endIdx = Math.min(startIdx + chunkSize, newItems.length);
       
-      // Build indexes once (only once per run)
-      if (startIdx === 0) {
-        // Build indexes
-        const nameIndex = {};
-        const urlIndex = {};
-        const domainIndex = {};
-
-        masterItems.forEach((item, idx) => {
-          const nName = normalizeName(item.name);
-          const nUrl = normalizeUrl(item.url);
-          const domain = nUrl.split('/')[0] || '';
-
-          if (nName) nameIndex[nName] = idx;
-          if (nUrl) urlIndex[nUrl] = idx;
-          if (domain) {
-            if (!domainIndex[domain]) domainIndex[domain] = [];
-            domainIndex[domain].push(idx);
-          }
-        });
-
-        // Store indexes globally for this run
-        window._nameIndex = nameIndex;
-        window._urlIndex = urlIndex;
-        window._masterItems = masterItems;
-        window._domainIndex = domainIndex;
-      }
-
-      const nameIndex = window._nameIndex || {};
-      const urlIndex = window._urlIndex || {};
-      const domainIndex = window._domainIndex || {};
-      const masterItemsRef = window._masterItems || masterItems;
-
       for (let i = startIdx; i < endIdx; i++) {
         const newItem = newItems[i];
         
@@ -242,7 +212,7 @@
 
         // Try exact URL match first
         if (urlIndex[nUrl] !== undefined) {
-          const master = masterItemsRef[urlIndex[nUrl]];
+          const master = masterItems[urlIndex[nUrl]];
           bestMatch = master;
           bestScore = 100;
           nameSim = getSimilarity(nName, normalizeName(master.name));
@@ -251,7 +221,7 @@
 
         // Try exact name match
         if (bestScore < 85 && nName && nameIndex[nName] !== undefined) {
-          const master = masterItemsRef[nameIndex[nName]];
+          const master = masterItems[nameIndex[nName]];
           if (bestScore < 85) {
             bestMatch = master;
             bestScore = 85;
@@ -260,10 +230,11 @@
           }
         }
 
-        // Try domain match (fast approximate) - only if mode is fast
+        // Try domain match (fast approximate)
         if (mode === 'fast' && bestScore < 70 && domain && domainIndex[domain]) {
-          for (const masterIdx of domainIndex[domain]) {
-            const master = masterItemsRef[masterIdx];
+          const domainMatches = domainIndex[domain] || [];
+          for (const masterIdx of domainMatches) {
+            const master = masterItems[masterIdx];
             const mUrl = normalizeUrl(master.url);
             const mName = normalizeName(master.name);
             const uSim = getSimilarity(nUrl, mUrl);
@@ -279,7 +250,7 @@
         }
 
         // If still no match, try name-based search (limited candidates)
-        if (mode === 'accurate' || (bestScore < 55 && nName)) {
+        if ((mode === 'accurate' || bestScore < 55) && nName) {
           let candidates = [];
           const nNameLower = nName;
           let count = 0;
@@ -291,7 +262,7 @@
             }
           }
           for (const masterIdx of candidates) {
-            const master = masterItemsRef[masterIdx];
+            const master = masterItems[masterIdx];
             const mName = normalizeName(master.name);
             const mUrl = normalizeUrl(master.url);
             const nSim = getSimilarity(nName, mName);
@@ -352,19 +323,36 @@
       const results = [];
       const stats = { new: 0, old: 0, similar: 0 };
       
-      // Clear previous indexes
-      window._nameIndex = null;
-      window._urlIndex = null;
-      window._domainIndex = null;
-      window._masterItems = null;
+      // Build indexes ONCE
+      const nameIndex = {};
+      const urlIndex = {};
+      const domainIndex = {};
 
-      // Process in chunks
+      masterItems.forEach((item, idx) => {
+        const nName = normalizeName(item.name);
+        const nUrl = normalizeUrl(item.url);
+        const domain = nUrl.split('/')[0] || '';
+
+        if (nName) nameIndex[nName] = idx;
+        if (nUrl) urlIndex[nUrl] = idx;
+        if (domain) {
+          if (!domainIndex[domain]) domainIndex[domain] = [];
+          domainIndex[domain].push(idx);
+        }
+      });
+
       let currentIdx = 0;
       const total = newItems.length;
 
       function processNextChunk() {
-        if (stopProcessing || currentIdx >= total) {
-          // Done
+        if (stopProcessing) {
+          isProcessing = false;
+          document.getElementById('progressText').textContent = '⏹️ Stopped by user.';
+          return;
+        }
+
+        if (currentIdx >= total) {
+          // Done - all chunks processed
           const progressBar = document.getElementById('progressBar');
           const progressFill = document.getElementById('progressFill');
           const progressText = document.getElementById('progressText');
@@ -404,7 +392,10 @@
         chunkInfo.textContent = `📦 Chunk: ${Math.floor(currentIdx / chunkSize) + 1} · ${Math.min(currentIdx + chunkSize, total).toLocaleString()} of ${total.toLocaleString()}`;
 
         // Process one chunk
-        const newIdx = processChunk(masterItems, newItems, mode, chunkSize, currentIdx, results, stats);
+        const newIdx = processChunk(
+          masterItems, newItems, mode, chunkSize, currentIdx, 
+          results, stats, nameIndex, urlIndex, domainIndex
+        );
         currentIdx = newIdx;
 
         // Update stats display live
@@ -413,12 +404,17 @@
         document.getElementById('statSimilar').textContent = stats.similar;
 
         // Schedule next chunk with a small delay to let UI breathe
-        setTimeout(processNextChunk, 50);
+        setTimeout(processNextChunk, 30);
       }
 
       // Start processing
       isProcessing = true;
       stopProcessing = false;
+      document.getElementById('progressBar').style.display = 'block';
+      document.getElementById('progressText').style.display = 'block';
+      document.getElementById('chunkInfo').style.display = 'inline-block';
+      document.getElementById('exportBtn').style.display = 'none';
+      
       setTimeout(processNextChunk, 100);
 
       return { results, stats, done: false };
@@ -638,10 +634,6 @@
       document.getElementById('progressText').style.display = 'none';
       document.getElementById('chunkInfo').style.display = 'none';
       allResults = [];
-      window._nameIndex = null;
-      window._urlIndex = null;
-      window._domainIndex = null;
-      window._masterItems = null;
     });
 
     document.getElementById('exportBtn').addEventListener('click', exportToCSV);
