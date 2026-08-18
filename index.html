@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔍 Company Matcher – Batch + Auto-Merge</title>
+  <title>🔍 Company Matcher – Auto-Split + Merge</title>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
     body { background: #f4f7fc; padding: 2rem 1rem; max-width: 1400px; margin: 0 auto; }
@@ -45,9 +45,9 @@
     th { text-align: left; padding: 0.6rem 0.4rem; border-bottom: 2px solid #dde3ed; color: #1f2a3c; position: sticky; top: 0; background: white; z-index: 10; }
     td { padding: 0.4rem 0.4rem; border-bottom: 1px solid #eaedf3; vertical-align: middle; }
     
-    .progress-bar { height: 8px; background: #e6edf6; border-radius: 10px; margin: 1rem 0; overflow: hidden; display: none; }
+    .progress-bar { height: 8px; background: #e6edf6; border-radius: 10px; margin: 1rem 0; overflow: hidden; display: block; }
     .progress-fill { height: 100%; background: #1e2b3c; border-radius: 10px; width: 0%; transition: width 0.3s; }
-    #progressText { font-size: 0.9rem; color: #1e2b3c; margin: 0.5rem 0; display: none; font-weight: 500; }
+    #progressText { font-size: 0.9rem; color: #1e2b3c; margin: 0.5rem 0; display: block; font-weight: 500; }
     .pagination { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
     .pagination button { background: #eef3fa; border: 1px solid #d0d9e8; padding: 0.3rem 0.8rem; border-radius: 6px; cursor: pointer; }
     .pagination button:hover { background: #dde3ed; }
@@ -55,26 +55,23 @@
     .pagination .active { background: #1e2b3c; color: white; border-color: #1e2b3c; }
     .debug-info { background: #f0f4ff; padding: 1rem; border-radius: 12px; border-left: 4px solid #1e2b3c; margin: 1rem 0; font-size: 0.9rem; }
     .debug-info strong { color: #1e2b3c; }
-    .batch-info { background: #e8f5e9; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; display: inline-block; margin: 0.5rem 0; }
-    .mode-select { display: flex; gap: 1.5rem; align-items: center; background: #eef3fa; padding: 0.5rem 1.5rem; border-radius: 40px; flex-wrap: wrap; }
-    .mode-select label { display: flex; align-items: center; gap: 0.4rem; font-weight: normal; cursor: pointer; font-size: 0.9rem; }
-    .mode-select input[type="radio"] { accent-color: #1e2b3c; width: 16px; height: 16px; }
-    .mode-select select { padding: 0.3rem 0.8rem; border-radius: 6px; border: 1px solid #d0d9e8; font-size: 0.9rem; }
     .complete-banner { background: #d4edda; padding: 1rem; border-radius: 12px; text-align: center; margin: 1rem 0; display: none; }
     .complete-banner strong { color: #0e5e2b; font-size: 1.1rem; }
+    .mode-select { display: flex; gap: 1.5rem; align-items: center; background: #eef3fa; padding: 0.5rem 1.5rem; border-radius: 40px; flex-wrap: wrap; }
+    .mode-select select { padding: 0.3rem 0.8rem; border-radius: 6px; border: 1px solid #d0d9e8; font-size: 0.9rem; }
   </style>
 </head>
 <body>
 
 <div class="card">
-  <h1>🔍 Company Matcher <span class="sub">Batch + Auto-Merge</span></h1>
-  <p style="color: #2e405c;">Paste your <strong>master list</strong> and <strong>new list</strong> – each as <strong>two columns</strong>: Name (left) and URL (right).<br>
-  <strong>Processes in batches, auto-merges, and outputs one complete CSV when done.</strong></p>
+  <h1>🔍 Company Matcher <span class="sub">Auto-Split + Merge – Handles 28k+</span></h1>
+  <p style="color: #2e405c;">Paste your <strong>master list</strong> and <strong>FULL new list</strong> – the tool automatically splits, processes, and merges.<br>
+  <strong>Fully automatic – no manual splitting needed.</strong></p>
 </div>
 
 <div class="grid-2">
   <div class="card">
-    <label>📂 Master list (existing)</label>
+    <label>📂 Master list (existing) – <strong>keep this the same</strong></label>
     <div class="split-input">
       <textarea id="masterNames" placeholder="Company names"></textarea>
       <textarea id="masterUrls" placeholder="URLs"></textarea>
@@ -82,10 +79,10 @@
     <div class="hint">Left = name · Right = URL (one per line)</div>
   </div>
   <div class="card">
-    <label>📄 New list (to check)</label>
+    <label>📄 New list (<strong>FULL list</strong> – all 28,000+ companies)</label>
     <div class="split-input">
       <textarea id="newNames" placeholder="Company names (optional)"></textarea>
-      <textarea id="newUrls" placeholder="URLs"></textarea>
+      <textarea id="newUrls" placeholder="URLs (FULL list)"></textarea>
     </div>
     <div class="hint">Left = name (optional) · Right = URL (one per line)</div>
   </div>
@@ -99,10 +96,14 @@
 </div>
 
 <div class="mode-select">
-  <span style="font-weight:600;font-size:0.9rem;">⚡ Mode:</span>
-  <label><input type="radio" name="mode" value="fast" checked> Fast</label>
-  <label><input type="radio" name="mode" value="accurate"> Accurate</label>
-  <span style="font-size:0.8rem;color:#5e7089;margin-left:0.5rem;">Batch size: <select id="batchSize"><option value="1000">1,000</option><option value="2000">2,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select></span>
+  <span style="font-weight:600;font-size:0.9rem;">⚡ Chunk size:</span>
+  <select id="chunkSize">
+    <option value="3000">3,000</option>
+    <option value="5000" selected>5,000</option>
+    <option value="7000">7,000</option>
+    <option value="10000">10,000</option>
+  </select>
+  <span style="font-size:0.8rem;color:#5e7089;">(smaller = less freezing)</span>
 </div>
 
 <div id="debugInfo" class="debug-info" style="display:none;">
@@ -110,11 +111,11 @@
   <span id="debugText">Loading...</span>
 </div>
 
-<div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
-<div id="progressText">⏳ Starting comparison...</div>
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+<div id="progressText">⏳ Ready – paste lists and click "Compare lists"</div>
 
 <div class="complete-banner" id="completeBanner">
-  <strong>✅ All batches complete!</strong> <span id="completeCount"></span> companies processed. Click "Download Complete CSV" below.
+  <strong>✅ All chunks complete!</strong> <span id="completeCount"></span> companies processed. Click "Download Complete CSV" below.
 </div>
 
 <div class="card" id="resultContainer">
@@ -131,12 +132,9 @@
     const pageSize = 200;
     let lastStats = { new: 0, old: 0, similar: 0 };
     let isProcessing = false;
-    let stopProcessing = false;
     let isComplete = false;
 
-    // ============================================================
-    //  URL helpers
-    // ============================================================
+    // ---------- URL helpers ----------
     function getFullDomain(url) {
       if (!url) return '';
       let clean = url.trim().toLowerCase();
@@ -213,152 +211,122 @@
       return items;
     }
 
-    // ---------- PROCESS A SINGLE BATCH ----------
-    function processBatch(masterItems, newItems, startIdx, endIdx, stats, urlIndex, nameIndex, debug) {
-      const results = [];
-      let urlMatches = 0, nameMatches = 0, noMatches = 0;
-      
-      for (let i = startIdx; i < endIdx; i++) {
-        const newItem = newItems[i];
-        
-        const nName = normalizeName(newItem.name);
-        const nUrl = normalizeUrl(newItem.url);
-        const nRoot = getRootDomain(newItem.url);
+    // ---------- Match a single company ----------
+    function matchCompany(newItem, masterItems, urlIndex, nameIndex) {
+      const nName = normalizeName(newItem.name);
+      const nUrl = normalizeUrl(newItem.url);
+      const nRoot = getRootDomain(newItem.url);
 
-        let bestMatch = null;
-        let bestScore = 0;
-        let nameSim = 0, urlSim = 0;
-        let matchType = 'none';
+      let bestMatch = null;
+      let bestScore = 0;
+      let nameSim = 0, urlSim = 0;
+      let matchType = 'none';
 
-        // 1. Try exact URL match
-        if (urlIndex[nUrl] !== undefined) {
-          const master = masterItems[urlIndex[nUrl]];
-          bestMatch = master;
-          bestScore = 100;
-          nameSim = getSimilarity(nName, normalizeName(master.name));
-          urlSim = 100;
-          matchType = 'url';
-          urlMatches++;
-        }
-
-        // 2. Try root domain match
-        if (bestScore < 85 && nRoot) {
-          for (const [key, idx] of Object.entries(urlIndex)) {
-            const masterRoot = getRootDomain(key);
-            if (masterRoot === nRoot) {
-              const master = masterItems[idx];
-              if (bestScore < 85) {
-                bestMatch = master;
-                bestScore = 85;
-                nameSim = getSimilarity(nName, normalizeName(master.name));
-                urlSim = 100;
-                matchType = 'domain';
-                urlMatches++;
-                break;
-              }
-            }
-          }
-        }
-
-        // 3. Try exact name match
-        if (bestScore < 70 && nName && nameIndex[nName] !== undefined) {
-          const master = masterItems[nameIndex[nName]];
-          if (bestScore < 70) {
-            bestMatch = master;
-            bestScore = 70;
-            nameSim = 100;
-            urlSim = getSimilarity(nUrl, normalizeUrl(master.url));
-            matchType = 'name';
-            nameMatches++;
-          }
-        }
-
-        // 4. Fuzzy name match
-        if (bestScore < 55 && nName) {
-          let candidates = [];
-          const nNameLower = nName;
-          let count = 0;
-          for (const [key, idx] of Object.entries(nameIndex)) {
-            if (key.includes(nNameLower) || nNameLower.includes(key)) {
-              candidates.push(idx);
-              count++;
-              if (count > 100) break;
-            }
-          }
-          for (const masterIdx of candidates) {
-            const master = masterItems[masterIdx];
-            const mName = normalizeName(master.name);
-            const mUrl = normalizeUrl(master.url);
-            const nSim = getSimilarity(nName, mName);
-            const uSim = getSimilarity(nUrl, mUrl);
-            const combined = (nSim * 0.5) + (uSim * 0.5);
-            if (combined > bestScore) {
-              bestScore = combined;
-              bestMatch = master;
-              nameSim = nSim;
-              urlSim = uSim;
-              matchType = 'fuzzy';
-            }
-          }
-        }
-
-        if (bestScore === 0 || matchType === 'none') {
-          noMatches++;
-        }
-
-        let status = 'new';
-        let statusLabel = '🆕 NEW';
-        let tagClass = 'tag-new';
-        if (bestScore >= 75) {
-          status = 'old';
-          statusLabel = '🔄 OLD';
-          tagClass = 'tag-old';
-          stats.old++;
-        } else if (bestScore >= 55) {
-          status = 'similar';
-          statusLabel = '⚠️ SIMILAR';
-          tagClass = 'tag-similar';
-          stats.similar++;
-        } else {
-          stats.new++;
-        }
-
-        results.push({
-          newName: newItem.name || '—',
-          newUrl: newItem.url || '—',
-          matchedName: bestMatch ? bestMatch.name : '—',
-          matchedUrl: bestMatch ? bestMatch.url : '—',
-          similarity: bestScore,
-          nameSim: nameSim,
-          urlSim: urlSim,
-          status: status,
-          statusLabel: statusLabel,
-          tagClass: tagClass,
-          matchType: matchType
-        });
+      // 1. Exact URL match
+      if (urlIndex[nUrl] !== undefined) {
+        const master = masterItems[urlIndex[nUrl]];
+        bestMatch = master;
+        bestScore = 100;
+        nameSim = getSimilarity(nName, normalizeName(master.name));
+        urlSim = 100;
+        matchType = 'url';
       }
 
-      debug.urlMatches += urlMatches;
-      debug.nameMatches += nameMatches;
-      debug.noMatches += noMatches;
-      debug.totalProcessed += (endIdx - startIdx);
+      // 2. Root domain match
+      if (bestScore < 85 && nRoot) {
+        for (const [key, idx] of Object.entries(urlIndex)) {
+          const masterRoot = getRootDomain(key);
+          if (masterRoot === nRoot) {
+            const master = masterItems[idx];
+            if (bestScore < 85) {
+              bestMatch = master;
+              bestScore = 85;
+              nameSim = getSimilarity(nName, normalizeName(master.name));
+              urlSim = 100;
+              matchType = 'domain';
+              break;
+            }
+          }
+        }
+      }
 
-      return results;
+      // 3. Exact name match
+      if (bestScore < 70 && nName && nameIndex[nName] !== undefined) {
+        const master = masterItems[nameIndex[nName]];
+        if (bestScore < 70) {
+          bestMatch = master;
+          bestScore = 70;
+          nameSim = 100;
+          urlSim = getSimilarity(nUrl, normalizeUrl(master.url));
+          matchType = 'name';
+        }
+      }
+
+      // 4. Fuzzy name match (limited)
+      if (bestScore < 55 && nName) {
+        let candidates = [];
+        let count = 0;
+        for (const [key, idx] of Object.entries(nameIndex)) {
+          if (key.includes(nName) || nName.includes(key)) {
+            candidates.push(idx);
+            count++;
+            if (count > 50) break;
+          }
+        }
+        for (const masterIdx of candidates) {
+          const master = masterItems[masterIdx];
+          const mName = normalizeName(master.name);
+          const mUrl = normalizeUrl(master.url);
+          const nSim = getSimilarity(nName, mName);
+          const uSim = getSimilarity(nUrl, mUrl);
+          const combined = (nSim * 0.5) + (uSim * 0.5);
+          if (combined > bestScore) {
+            bestScore = combined;
+            bestMatch = master;
+            nameSim = nSim;
+            urlSim = uSim;
+            matchType = 'fuzzy';
+          }
+        }
+      }
+
+      let status = 'new';
+      let statusLabel = '🆕 NEW';
+      let tagClass = 'tag-new';
+      if (bestScore >= 75) {
+        status = 'old';
+        statusLabel = '🔄 OLD';
+        tagClass = 'tag-old';
+      } else if (bestScore >= 55) {
+        status = 'similar';
+        statusLabel = '⚠️ SIMILAR';
+        tagClass = 'tag-similar';
+      }
+
+      return {
+        newName: newItem.name || '—',
+        newUrl: newItem.url || '—',
+        matchedName: bestMatch ? bestMatch.name : '—',
+        matchedUrl: bestMatch ? bestMatch.url : '—',
+        similarity: bestScore,
+        nameSim: nameSim,
+        urlSim: urlSim,
+        status: status,
+        statusLabel: statusLabel,
+        tagClass: tagClass,
+        matchType: matchType
+      };
     }
 
-    // ---------- MAIN COMPARISON WITH BATCHES ----------
-    function compareListsWithBatches(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode, batchSize) {
+    // ---------- Compare lists with auto-splitting ----------
+    function compareLists(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode, chunkSize) {
       const masterItems = parseColumns(masterNames, masterUrls, isUrlOnlyMode);
       const newItems = parseColumns(newNames, newUrls, isUrlOnlyMode);
 
       if (masterItems.length === 0 || newItems.length === 0) {
-        return { results: [], stats: { new: 0, old: 0, similar: 0 }, done: true };
+        return { results: [], stats: { new: 0, old: 0, similar: 0 } };
       }
 
-      const allResults = [];
-      const stats = { new: 0, old: 0, similar: 0 };
-      const debug = { urlMatches: 0, nameMatches: 0, noMatches: 0, totalProcessed: 0 };
-      
       // Build indexes
       const nameIndex = {};
       const urlIndex = {};
@@ -371,133 +339,98 @@
       });
 
       const total = newItems.length;
-      const totalBatches = Math.ceil(total / batchSize);
+      const totalChunks = Math.ceil(total / chunkSize);
+      const results = [];
+      const stats = { new: 0, old: 0, similar: 0 };
 
-      // Show debug info
-      const debugDiv = document.getElementById('debugInfo');
-      const debugText = document.getElementById('debugText');
-      debugDiv.style.display = 'block';
-      debugText.innerHTML = `
-        Master: ${masterItems.length.toLocaleString()} · 
-        New: ${total.toLocaleString()} · 
-        URL index: ${Object.keys(urlIndex).length} · 
-        Name index: ${Object.keys(nameIndex).length} · 
-        Batches: ${totalBatches}
-      `;
+      let chunkIndex = 0;
+      let globalProcessed = 0;
 
-      let currentIdx = 0;
-      let batchNumber = 1;
+      function processChunk() {
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(start + chunkSize, total);
+        const chunkNumber = chunkIndex + 1;
 
-      function processNextBatch() {
-        if (stopProcessing) {
-          isProcessing = false;
-          document.getElementById('progressText').textContent = '⏹️ Stopped by user.';
-          return;
+        // Process this chunk
+        for (let i = start; i < end; i++) {
+          const result = matchCompany(newItems[i], masterItems, urlIndex, nameIndex);
+          if (result.status === 'new') stats.new++;
+          else if (result.status === 'old') stats.old++;
+          else if (result.status === 'similar') stats.similar++;
+          results.push(result);
         }
 
-        if (currentIdx >= total) {
-          // DONE – all batches complete, auto-merge!
-          const progressBar = document.getElementById('progressBar');
-          const progressFill = document.getElementById('progressFill');
-          const progressText = document.getElementById('progressText');
-          progressFill.style.width = '100%';
-          progressText.textContent = `✅ Done! Processed ${total.toLocaleString()} companies in ${totalBatches} batches.`;
-          setTimeout(() => { 
-            progressBar.style.display = 'none'; 
-          }, 1500);
-          
-          debugText.innerHTML += `
-            <br><br><strong>Match breakdown:</strong><br>
-            🔵 URL/domain matches: ${debug.urlMatches.toLocaleString()}<br>
-            🟢 Name exact matches: ${debug.nameMatches.toLocaleString()}<br>
-            ⚪ No match: ${debug.noMatches.toLocaleString()}<br>
-            📊 Total processed: ${debug.totalProcessed.toLocaleString()}
-          `;
+        globalProcessed = end;
+        chunkIndex++;
+
+        // Update UI
+        const pct = Math.round((globalProcessed / total) * 100);
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressText').textContent = 
+          `⏳ Chunk ${chunkNumber}/${totalChunks}: ${globalProcessed.toLocaleString()} of ${total.toLocaleString()} companies (${pct}%)...`;
+        
+        document.getElementById('statNew').textContent = stats.new;
+        document.getElementById('statOld').textContent = stats.old;
+        document.getElementById('statSimilar').textContent = stats.similar;
+
+        // Show debug
+        const debugDiv = document.getElementById('debugInfo');
+        const debugText = document.getElementById('debugText');
+        debugDiv.style.display = 'block';
+        debugText.innerHTML = `
+          Master: ${masterItems.length.toLocaleString()} · 
+          New: ${total.toLocaleString()} · 
+          Chunks: ${totalChunks} · 
+          URL index: ${Object.keys(urlIndex).length} · 
+          Name index: ${Object.keys(nameIndex).length}<br>
+          <strong>Chunk ${chunkNumber}/${totalChunks}:</strong> 
+          Processed: ${globalProcessed.toLocaleString()} · 
+          NEW: ${stats.new} · OLD: ${stats.old} · SIMILAR: ${stats.similar}
+        `;
+
+        // Show results so far
+        renderPageWithResults(results);
+
+        if (globalProcessed < total) {
+          // Schedule next chunk with a delay
+          setTimeout(processChunk, 100);
+        } else {
+          // DONE
+          document.getElementById('progressFill').style.width = '100%';
+          document.getElementById('progressText').textContent = 
+            `✅ Done! Processed ${total.toLocaleString()} companies in ${totalChunks} chunks.`;
           
           document.getElementById('statNew').textContent = stats.new;
           document.getElementById('statOld').textContent = stats.old;
           document.getElementById('statSimilar').textContent = stats.similar;
           
           // Store merged results
-          allResults.length = 0;
-          allResults.push(...allResults);
-          window._allResults = allResults;
+          window._allResults = results;
           window._lastStats = stats;
-          window._mergedResults = allResults;
           isComplete = true;
           
           // Show Complete banner
           const banner = document.getElementById('completeBanner');
           banner.style.display = 'block';
-          document.getElementById('completeCount').textContent = allResults.length.toLocaleString();
+          document.getElementById('completeCount').textContent = results.length.toLocaleString();
           
           // Enable Export button
           document.getElementById('exportBtn').style.display = 'inline-block';
           document.getElementById('exportBtn').disabled = false;
           
-          // Show first page
-          currentPage = 1;
-          renderPageWithResults(allResults);
-          
           isProcessing = false;
-          return;
         }
-
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        
-        const endIdx = Math.min(currentIdx + batchSize, total);
-        const pct = Math.round((currentIdx / total) * 100);
-        progressFill.style.width = pct + '%';
-        progressText.textContent = `⏳ Batch ${batchNumber}/${totalBatches}: Processing ${currentIdx.toLocaleString()} to ${endIdx.toLocaleString()} (${pct}%)...`;
-
-        // Process this batch
-        const batchResults = processBatch(
-          masterItems, newItems, currentIdx, endIdx, 
-          stats, urlIndex, nameIndex, debug
-        );
-        
-        // Add to merged results
-        allResults.push(...batchResults);
-        
-        // Update stats display live
-        document.getElementById('statNew').textContent = stats.new;
-        document.getElementById('statOld').textContent = stats.old;
-        document.getElementById('statSimilar').textContent = stats.similar;
-
-        debugText.innerHTML = `
-          Master: ${masterItems.length.toLocaleString()} · 
-          New: ${total.toLocaleString()} · 
-          URL index: ${Object.keys(urlIndex).length} · 
-          Name index: ${Object.keys(nameIndex).length}<br>
-          <strong>Batch ${batchNumber}/${totalBatches}:</strong> 
-          URL/domain: ${debug.urlMatches} · 
-          Name: ${debug.nameMatches} · 
-          No match: ${debug.noMatches} · 
-          Total matched: ${(debug.totalProcessed - debug.noMatches).toLocaleString()}
-        `;
-
-        currentIdx = endIdx;
-        batchNumber++;
-        
-        // Show current progress
-        renderPageWithResults(allResults);
-
-        setTimeout(processNextBatch, 50);
       }
 
       isProcessing = true;
-      stopProcessing = false;
       isComplete = false;
-      document.getElementById('progressBar').style.display = 'block';
-      document.getElementById('progressText').style.display = 'block';
       document.getElementById('exportBtn').style.display = 'none';
       document.getElementById('completeBanner').style.display = 'none';
-      document.getElementById('batchDownloads').style.display = 'none';
       
-      setTimeout(processNextBatch, 200);
+      // Start processing
+      setTimeout(processChunk, 100);
 
-      return { results: allResults, stats: stats, done: false };
+      return { results, stats };
     }
 
     // ---------- render with pagination ----------
@@ -506,7 +439,7 @@
       const paginationDiv = document.getElementById('pagination');
       
       if (!results || results.length === 0) {
-        wrapper.innerHTML = `<div class="empty-state">📭 No results to show.</div>`;
+        wrapper.innerHTML = `<div class="empty-state">⏳ Processing... results will appear here.</div>`;
         paginationDiv.style.display = 'none';
         return;
       }
@@ -580,7 +513,7 @@
     }
 
     window.goToPage = function(page) {
-      const results = window._allResults || allResults;
+      const results = window._allResults || [];
       const totalPages = Math.ceil(results.length / pageSize);
       if (page < 1 || page > totalPages) return;
       currentPage = page;
@@ -588,9 +521,9 @@
       document.getElementById('resultTableWrapper').scrollIntoView({ behavior: 'smooth' });
     };
 
-    // ---------- Export All Merged ----------
+    // ---------- Export Merged CSV ----------
     function exportMergedCSV() {
-      const results = window._allResults || allResults;
+      const results = window._allResults || [];
       if (!results || results.length === 0) {
         alert('No data to export. Compare lists first.');
         return;
@@ -649,11 +582,8 @@
     document.getElementById('compareBtn').addEventListener('click', function() {
       if (isProcessing) {
         if (confirm('Processing in progress. Stop and start over?')) {
-          stopProcessing = true;
           isProcessing = false;
-          setTimeout(() => {
-            startComparison();
-          }, 200);
+          setTimeout(() => startComparison(), 200);
         }
         return;
       }
@@ -667,7 +597,7 @@
       const newUrls = document.getElementById('newUrls').value;
 
       const isUrlOnlyMode = !masterNames.trim() && !newNames.trim();
-      const batchSize = parseInt(document.getElementById('batchSize').value) || 5000;
+      const chunkSize = parseInt(document.getElementById('chunkSize').value) || 5000;
       
       if (!masterUrls.trim() || !newUrls.trim()) {
         alert('Please paste at least the URL columns for both lists.');
@@ -682,29 +612,24 @@
       window._lastStats = null;
       isComplete = false;
       
-      document.getElementById('progressBar').style.display = 'block';
-      document.getElementById('progressText').style.display = 'block';
       document.getElementById('progressFill').style.width = '0%';
       document.getElementById('progressText').textContent = '⏳ Building indexes...';
       document.getElementById('exportBtn').style.display = 'none';
-      document.getElementById('debugInfo').style.display = 'none';
       document.getElementById('completeBanner').style.display = 'none';
+      document.getElementById('debugInfo').style.display = 'none';
       
-      document.getElementById('resultTableWrapper').innerHTML = `<div class="empty-state">⏳ Processing ${parseColumns(newNames, newUrls, isUrlOnlyMode).length.toLocaleString()} companies in batches...</div>`;
+      document.getElementById('resultTableWrapper').innerHTML = `<div class="empty-state">⏳ Processing ${parseColumns(newNames, newUrls, isUrlOnlyMode).length.toLocaleString()} companies...</div>`;
       document.getElementById('statNew').textContent = '0';
       document.getElementById('statOld').textContent = '0';
       document.getElementById('statSimilar').textContent = '0';
 
       setTimeout(() => {
-        compareListsWithBatches(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode, batchSize);
-      }, 200);
+        compareLists(masterNames, masterUrls, newNames, newUrls, isUrlOnlyMode, chunkSize);
+      }, 100);
     }
 
     document.getElementById('clearBtn').addEventListener('click', function() {
-      if (isProcessing) {
-        stopProcessing = true;
-        isProcessing = false;
-      }
+      isProcessing = false;
       document.getElementById('masterNames').value = '';
       document.getElementById('masterUrls').value = '';
       document.getElementById('newNames').value = '';
@@ -715,11 +640,10 @@
       document.getElementById('statSimilar').textContent = '0';
       document.getElementById('exportBtn').style.display = 'none';
       document.getElementById('pagination').style.display = 'none';
-      document.getElementById('progressBar').style.display = 'none';
-      document.getElementById('progressText').style.display = 'none';
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('progressText').textContent = '⏳ Ready – click "Compare lists"';
       document.getElementById('debugInfo').style.display = 'none';
       document.getElementById('completeBanner').style.display = 'none';
-      allResults = [];
       window._allResults = null;
       window._lastStats = null;
       isComplete = false;
